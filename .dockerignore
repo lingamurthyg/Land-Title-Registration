@@ -1,0 +1,84 @@
+# ============================================================================
+# .dockerignore - Exclude unnecessary files from Docker build context
+# Land Title Registry System
+# ============================================================================
+
+# Maven build artifacts
+target/
+**/target/
+
+# Maven wrapper (CRITICAL: Never use wrapper in Docker)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Gradle wrapper (CRITICAL: Never use wrapper in Docker)
+gradlew
+gradlew.bat
+gradle/wrapper/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+.idea/
+.vscode/
+.settings/
+.project
+.classpath
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# Documentation
+*.md
+docs/
+README*
+CHANGELOG*
+LICENSE*
+
+# Test files
+**/test-output/
+**/*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Docker files
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Kubernetes files
+kubernetes/
+k8s/
+
+# Scripts
+scripts/
+*.sh
+*.bat
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+azure-pipelines.yml
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Logs
+logs/
+*.log

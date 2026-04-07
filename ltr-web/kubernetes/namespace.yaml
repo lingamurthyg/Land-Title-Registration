@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ltr-web
+  labels:
+    name: ltr-web
+    app: land-title-registry
+    environment: production

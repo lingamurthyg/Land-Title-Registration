@@ -9,7 +9,7 @@
     <groupId>com.trianz.ltr</groupId>
     <artifactId>land-title-registry</artifactId>
     <version>1.0.0</version>
-    <packaging>ear</packaging>
+    <packaging>pom</packaging>
     <name>Land Title Registry System</name>
     <description>
         Enterprise Land Title Registry System built on Java 8, Maven, and

@@ -1,0 +1,94 @@
+version: '3.8'
+
+# ============================================================================
+# Docker Compose Configuration for Land Title Registry System
+# Application Service Only - External services configured via environment
+# ============================================================================
+
+services:
+  land-title-registry:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: land-title-registry:latest
+    container_name: land-title-registry-app
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      # Application Configuration
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      - TZ=UTC
+      - PORT=8080
+      
+      # Database Configuration (External Service)
+      # Update these values to point to your database instance
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-50000}
+      - DB_NAME=${DB_NAME:-landtitle}
+      - DB_USER=${DB_USER:-db2admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      
+      # Application-Specific Settings
+      - APP_ENV=${APP_ENV:-production}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+    volumes:
+      # Configuration overrides
+      - ./config:/opt/ol/usr/servers/defaultServer/configDropins/overrides:ro
+      # Application logs
+      - ./logs:/opt/ol/usr/servers/defaultServer/logs
+      # JDBC drivers (place DB2 JDBC driver here)
+      - ./lib:/opt/ol/usr/servers/defaultServer/lib:ro
+      
+    networks:
+      - app-network
+      
+    restart: unless-stopped
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/ltr/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+networks:
+  app-network:
+    driver: bridge
+
+# ============================================================================
+# USAGE INSTRUCTIONS:
+# ============================================================================
+# 1. Set environment variables in .env file or export them:
+#    export DB_HOST=your-db-host
+#    export DB_PORT=50000
+#    export DB_NAME=landtitle
+#    export DB_USER=db2admin
+#    export DB_PASSWORD=your-password
+#
+# 2. Place DB2 JDBC driver (db2jcc4.jar) in ./lib directory
+#
+# 3. Start the application:
+#    docker-compose up -d
+#
+# 4. View logs:
+#    docker-compose logs -f land-title-registry
+#
+# 5. Stop the application:
+#    docker-compose down
+#
+# 6. Access the application:
+#    http://localhost:8080/ltr
+#    Health check: http://localhost:8080/ltr/health
+# ============================================================================

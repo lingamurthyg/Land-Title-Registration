@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ltr-ear
+  labels:
+    name: ltr-ear
+    app: land-title-registry
+    environment: production

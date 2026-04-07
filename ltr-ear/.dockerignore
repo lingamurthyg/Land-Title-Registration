@@ -1,0 +1,84 @@
+# Docker ignore file for Land Title Registry EAR Application
+# Excludes unnecessary files from Docker build context
+
+# Maven build artifacts
+target/
+**/target/
+
+# Maven wrapper (CRITICAL: Never use wrapper in Docker)
+mvnw
+mvnw.cmd
+.mvn/
+
+# Gradle wrapper (CRITICAL: Never use wrapper in Docker)
+gradlew
+gradlew.bat
+gradle/wrapper/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (exclude from image)
+*.md
+docs/
+README*
+
+# Test files
+**/src/test/
+**/*Test.java
+**/*Tests.java
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Docker files (don't copy into image)
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.github/
+.gitlab-ci.yml
+Jenkinsfile
+azure-pipelines.yml
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Kubernetes manifests (deployed separately)
+kubernetes/
+k8s/
+*.yaml
+*.yml
+
+# Scripts (deployed separately)
+scripts/
+*.sh
+*.bat

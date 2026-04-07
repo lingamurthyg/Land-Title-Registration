@@ -1,0 +1,11 @@
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/ejb/LandTitleRegistryBean.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/util/TitleNumberGenerator.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/dao/LandTitleDAO.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/model/TitleTransfer.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/model/LandTitle.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/util/WASTransactionUtil.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/ejb/LandTitleRegistryRemote.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/ejb/LandTitleException.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/ejb/LandTitleRegistryLocal.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/util/WASDataSourceUtil.java
+/modernize-data/studio-data/TNT1001/APP855665/transformed-code/282/studio-workspace/Full Application/ltr-ejb/src/main/java/com/trianz/ltr/dao/TitleTransferDAO.java

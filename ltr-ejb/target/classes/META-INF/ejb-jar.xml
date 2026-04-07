@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ejb-jar xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+         http://xmlns.jcp.org/xml/ns/javaee/ejb-jar_3_2.xsd"
+         version="3.2">
+
+    <description>Land Title Registry EJB Module</description>
+    <display-name>ltr-ejb</display-name>
+
+    <enterprise-beans>
+        <session>
+            <description>Land Title Registry Stateless Session Bean</description>
+            <display-name>LandTitleRegistryBean</display-name>
+            <ejb-name>LandTitleRegistry</ejb-name>
+            <business-local>com.trianz.ltr.ejb.LandTitleRegistryLocal</business-local>
+            <business-remote>com.trianz.ltr.ejb.LandTitleRegistryRemote</business-remote>
+            <ejb-class>com.trianz.ltr.ejb.LandTitleRegistryBean</ejb-class>
+            <session-type>Stateless</session-type>
+            <transaction-type>Container</transaction-type>
+
+            <!-- JNDI reference to the WAS-managed DataSource -->
+            <resource-ref>
+                <description>WAS JDBC DataSource for Land Title Registry DB</description>
+                <res-ref-name>jdbc/LandTitleDS</res-ref-name>
+                <res-type>javax.sql.DataSource</res-type>
+                <res-auth>Container</res-auth>
+                <res-sharing-scope>Shareable</res-sharing-scope>
+            </resource-ref>
+        </session>
+    </enterprise-beans>
+
+    <!-- Container-Managed Transaction Attributes -->
+    <assembly-descriptor>
+
+        <!-- Default: REQUIRED for all methods -->
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>*</method-name>
+            </method>
+            <trans-attribute>Required</trans-attribute>
+        </container-transaction>
+
+        <!-- Read-only queries use SUPPORTS -->
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>getTitleByNumber</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>getTitlesByOwner</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>searchTitles</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>getTransferHistory</method-name>
+            </method>
+            <trans-attribute>Supports</trans-attribute>
+        </container-transaction>
+
+        <!-- Approval runs in its own independent transaction -->
+        <container-transaction>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>approveTransfer</method-name>
+            </method>
+            <trans-attribute>RequiresNew</trans-attribute>
+        </container-transaction>
+
+        <!-- Security roles -->
+        <method-permission>
+            <role-name>REGISTRY_OFFICER</role-name>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>registerTitle</method-name>
+            </method>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>getTitleByNumber</method-name>
+            </method>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>searchTitles</method-name>
+            </method>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>initiateTransfer</method-name>
+            </method>
+        </method-permission>
+
+        <method-permission>
+            <role-name>REGISTRY_SUPERVISOR</role-name>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>*</method-name>
+            </method>
+        </method-permission>
+
+        <method-permission>
+            <role-name>REGISTRY_ADMIN</role-name>
+            <method>
+                <ejb-name>LandTitleRegistry</ejb-name>
+                <method-name>*</method-name>
+            </method>
+        </method-permission>
+
+    </assembly-descriptor>
+
+</ejb-jar>

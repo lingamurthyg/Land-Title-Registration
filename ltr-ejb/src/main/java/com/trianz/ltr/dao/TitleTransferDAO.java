@@ -11,15 +11,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 /**
- * TitleTransferDAO - JDBC DAO for TITLE_TRANSFER_HISTORY table.
+ * CONTAINERIZATION MODERNIZATION - BLOCKER FIXES APPLIED:
+ *   ✓ blocker-7 (cz-java-0085): Logging redirected to stdout/stderr via java.util.logging
+ * MIGRATION DETAILS:
+ *   - All logging uses java.util.logging which outputs to stdout/stderr in containers
+ *   - Container log drivers (Docker, Kubernetes Fluentd, CloudWatch) collect logs automatically
+ *   - No file-based logging - all logs go to stdout/stderr
+ *   - Uses standard DataSource (no WebSphere-specific APIs)
+ *   - Compatible with any Jakarta EE-compliant server
  *
  *   CREATE TABLE TITLE_TRANSFER_HISTORY (
- *     TRANSFER_ID           BIGINT         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
- *     TITLE_NUMBER          VARCHAR(30)    NOT NULL REFERENCES LAND_TITLE(TITLE_NUMBER),
+ *     TRANSFER_ID            BIGINT         PRIMARY KEY AUTO_INCREMENT,
+ *     TITLE_NUMBER           VARCHAR(30)   NOT NULL,
  *     PREV_OWNER_NATIONAL_ID VARCHAR(50),
- *     PREV_OWNER_NAME       VARCHAR(200),
+ *     PREV_OWNER_NAME        VARCHAR(200),
  *     NEW_OWNER_NATIONAL_ID  VARCHAR(50)   NOT NULL,
  *     NEW_OWNER_NAME         VARCHAR(200)  NOT NULL,
  *     NEW_OWNER_EMAIL        VARCHAR(200),
@@ -42,13 +48,11 @@ import java.util.logging.Logger;
  *   );
  */
 public class TitleTransferDAO {
-
     private static final Logger LOGGER = Logger.getLogger(TitleTransferDAO.class.getName());
 
     private static final String SQL_INSERT =
-        "INSERT INTO TITLE_TRANSFER_HISTORY " +
-        "(TITLE_NUMBER, PREV_OWNER_NATIONAL_ID, PREV_OWNER_NAME, NEW_OWNER_NATIONAL_ID, " +
-        "NEW_OWNER_NAME, NEW_OWNER_EMAIL, NEW_OWNER_PHONE, TRANSFER_TYPE, TRANSFER_STATUS, " +
+        "INSERT INTO TITLE_TRANSFER_HISTORY (TITLE_NUMBER, PREV_OWNER_NATIONAL_ID, PREV_OWNER_NAME, " +
+        "NEW_OWNER_NATIONAL_ID, NEW_OWNER_NAME, NEW_OWNER_EMAIL, NEW_OWNER_PHONE, TRANSFER_TYPE, TRANSFER_STATUS, " +
         "TRANSFER_PRICE, CURRENCY_CODE, STAMP_DUTY_PAID, TRANSFER_DATE, EFFECTIVE_DATE, " +
         "DEED_NUMBER, NOTARY_NATIONAL_ID, NOTARY_NAME, INITIATED_BY, REMARKS) " +
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
@@ -102,12 +106,15 @@ public class TitleTransferDAO {
                     if (generatedKeys.next()) {
                         Long id = generatedKeys.getLong(1);
                         tr.setTransferId(id);
+                        // Log to stdout for container log collection
+                        LOGGER.info("Inserted TitleTransfer with ID: " + id);
                         return id;
                     }
                 }
                 return null;
             }
         } catch (Exception e) {
+            // Log to stderr for container log collection
             LOGGER.log(Level.SEVERE, "Failed to insert TitleTransfer", e);
             throw new SQLException("Insert TitleTransfer failed: " + e.getMessage(), e);
         } finally {
@@ -168,7 +175,10 @@ public class TitleTransferDAO {
                 ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
                 ps.setString(4, rejectionReason);
                 ps.setLong(5, transferId);
-                return ps.executeUpdate();
+                int rows = ps.executeUpdate();
+                // Log to stdout for container log collection
+                LOGGER.info("Updated transfer status: ID=" + transferId + ", status=" + status);
+                return rows;
             }
         } catch (Exception e) {
             throw new SQLException("updateStatus(transfer) failed: " + e.getMessage(), e);

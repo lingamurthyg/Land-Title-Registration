@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: land-title-registry
+  labels:
+    name: land-title-registry
+    app: land-title-registry
+    environment: production

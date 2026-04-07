@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  ltr-web:
+    build:
+      context: ..
+      dockerfile: ltr-web/Dockerfile
+    image: ltr-web:latest
+    container_name: ltr-web-app
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+    environment:
+      # Database Configuration (external service)
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-50000}
+      - DB_NAME=${DB_NAME:-LTRDB}
+      - DB_USER=${DB_USER:-db2admin}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      
+      # JVM Configuration
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0
+      
+      # Application Configuration
+      - TZ=UTC
+      - LANG=en_US.UTF-8
+    volumes:
+      # Configuration files
+      - ./config:/opt/ol/wlp/usr/servers/ltrServer/config:ro
+      # Application logs
+      - ./logs:/opt/ol/wlp/usr/servers/ltrServer/logs
+    networks:
+      - ltr-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "server", "status", "ltrServer"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  ltr-network:
+    driver: bridge

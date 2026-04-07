@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ltr-ejb
+  namespace: ltr-ejb
+  labels:
+    app: ltr-ejb
+    component: ejb-module
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ltr-ejb
+  template:
+    metadata:
+      labels:
+        app: ltr-ejb
+        component: ejb-module
+        version: v1
+    spec:
+      containers:
+      - name: ltr-ejb
+        image: {{IMAGE_URI}}
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        # Java runtime configuration
+        - name: JAVA_OPTS
+          value: "-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+        
+        # Application environment
+        - name: APP_ENV
+          value: "production"
+        
+        - name: TZ
+          value: "UTC"
+        
+        # Database configuration (external service)
+        - name: DB_HOST
+          value: "{{DB_HOST}}"
+        
+        - name: DB_PORT
+          value: "{{DB_PORT}}"
+        
+        - name: DB_NAME
+          value: "{{DB_NAME}}"
+        
+        - name: DB_USER
+          value: "{{DB_USER}}"
+        
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ltr-ejb-secrets
+              key: db-password
+              optional: true
+        
+        # JNDI DataSource configuration
+        - name: JNDI_DATASOURCE
+          value: "{{JNDI_DATASOURCE}}"
+        
+        # Logging configuration
+        - name: LOG_LEVEL
+          value: "INFO"
+        
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        
+        # Liveness probe - checks if container is alive
+        livenessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        # Readiness probe - checks if container is ready to serve traffic
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+      
+      restartPolicy: Always

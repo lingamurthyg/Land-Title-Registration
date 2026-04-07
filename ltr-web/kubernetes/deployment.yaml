@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ltr-web
+  namespace: ltr-web
+  labels:
+    app: ltr-web
+    version: v1
+    component: web-application
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ltr-web
+  template:
+    metadata:
+      labels:
+        app: ltr-web
+        version: v1
+    spec:
+      containers:
+      - name: ltr-web
+        image: {{IMAGE_URI}}
+        imagePullPolicy: Always
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        - name: https
+          containerPort: 8443
+          protocol: TCP
+        env:
+        # Database Configuration (external service)
+        - name: DB_HOST
+          value: "{{DB_HOST}}"
+        - name: DB_PORT
+          value: "{{DB_PORT}}"
+        - name: DB_NAME
+          value: "{{DB_NAME}}"
+        - name: DB_USER
+          value: "{{DB_USER}}"
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: ltr-db-secret
+              key: password
+              optional: true
+        # JVM Configuration
+        - name: JAVA_OPTS
+          value: "-Xmx512m -Xms256m -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0"
+        # Application Configuration
+        - name: TZ
+          value: "UTC"
+        - name: LANG
+          value: "en_US.UTF-8"
+        resources:
+          requests:
+            cpu: "250m"
+            memory: "512Mi"
+          limits:
+            cpu: "500m"
+            memory: "1Gi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 90
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+            scheme: HTTP
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: config
+          mountPath: /opt/ol/wlp/usr/servers/ltrServer/config
+          readOnly: true
+        - name: logs
+          mountPath: /opt/ol/wlp/usr/servers/ltrServer/logs
+      volumes:
+      - name: config
+        configMap:
+          name: ltr-web-config
+          optional: true
+      - name: logs
+        emptyDir: {}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30

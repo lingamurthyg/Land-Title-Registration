@@ -14,21 +14,21 @@
 
     <artifactId>ltr-web</artifactId>
     <packaging>war</packaging>
-    <n>Land Title Registry - Web Module</n>
+    <name>Land Title Registry - Web Module</name>
 
     <dependencies>
-        <!-- EJB client jar from sibling module -->
+        <!-- EJB module dependency for compile-time access to all classes -->
+        <!-- This includes EJB interfaces, model classes, and utility classes like WASDataSourceUtil -->
         <dependency>
             <groupId>com.trianz.ltr</groupId>
             <artifactId>ltr-ejb</artifactId>
             <version>${project.version}</version>
-            <classifier>client</classifier>
+            <type>ejb</type>
+            <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>com.ibm.websphere.appserver</groupId>
-            <artifactId>was_public</artifactId>
-        </dependency>
+        <!-- WebSphere-specific dependency removed (blocker-3, blocker-4 fix) -->
+        <!-- Replaced com.ibm.websphere.appserver:was_public with standard Jakarta EE APIs -->
         <dependency>
             <groupId>javax</groupId>
             <artifactId>javaee-api</artifactId>

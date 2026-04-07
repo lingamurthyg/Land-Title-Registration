@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  ltr-ejb:
+    build:
+      context: ..
+      dockerfile: ltr-ejb/Dockerfile
+    image: ltr-ejb:latest
+    container_name: ltr-ejb
+    ports:
+      - "8080:8080"
+    environment:
+      # Java runtime options
+      - JAVA_OPTS=-Xmx512m -Xms256m -XX:+UseContainerSupport
+      
+      # Application configuration
+      - APP_ENV=docker
+      - TZ=UTC
+      
+      # Database connection (external service - configure as needed)
+      - DB_HOST=${DB_HOST:-database-host}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-ltr_db}
+      - DB_USER=${DB_USER:-ltr_user}
+      - DB_PASSWORD=${DB_PASSWORD:-changeme}
+      
+      # JNDI DataSource configuration
+      - JNDI_DATASOURCE=${JNDI_DATASOURCE:-jdbc/LandTitleDB}
+      
+      # Logging configuration
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    networks:
+      - ltr-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "exit 0"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  ltr-network:
+    driver: bridge

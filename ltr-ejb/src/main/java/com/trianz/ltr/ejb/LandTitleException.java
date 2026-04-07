@@ -1,12 +1,12 @@
 package com.trianz.ltr.ejb;
 
+import javax.ejb.ApplicationException;
+
 /**
  * LandTitleException - Checked application exception for the registry EJB.
  * Marked as @ApplicationException so WAS does NOT roll back the transaction
  * automatically (caller decides rollback behaviour).
  */
-import javax.ejb.ApplicationException;
-
 @ApplicationException(rollback = false)
 public class LandTitleException extends Exception {
 

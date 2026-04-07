@@ -10,7 +10,12 @@ import com.trianz.ltr.util.TitleNumberGenerator;
 
 import javax.annotation.Resource;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.*;
+import javax.ejb.Stateless;
+import javax.ejb.TransactionManagement;
+import javax.ejb.TransactionManagementType;
+import javax.ejb.TransactionAttribute;
+import javax.ejb.TransactionAttributeType;
+import javax.ejb.SessionContext;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
@@ -252,7 +257,6 @@ public class LandTitleRegistryBean
     @RolesAllowed({"REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
     public void approveTransfer(Long transferId, String approvedByPrincipal) throws LandTitleException {
         try {
-            List<TitleTransfer> list = transferDAO.findByTitleNumber("");  // find by id via pending list
             // Look up the specific transfer
             TitleTransfer transfer = findTransferById(transferId);
 

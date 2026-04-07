@@ -1,0 +1,17 @@
+com/trianz/ltr/util/WASTransactionUtil.class
+com/trianz/ltr/util/WASTransactionUtil$TransactionAction.class
+com/trianz/ltr/ejb/LandTitleException.class
+com/trianz/ltr/model/TitleTransfer$TransferStatus.class
+com/trianz/ltr/model/TitleTransfer$TransferType.class
+com/trianz/ltr/model/LandTitle$LandUseType.class
+com/trianz/ltr/ejb/LandTitleRegistryRemote.class
+com/trianz/ltr/util/TitleNumberGenerator.class
+com/trianz/ltr/dao/LandTitleDAO.class
+com/trianz/ltr/ejb/LandTitleRegistryLocal.class
+com/trianz/ltr/util/WASDataSourceUtil.class
+com/trianz/ltr/ejb/LandTitleRegistryBean.class
+com/trianz/ltr/model/LandTitle.class
+com/trianz/ltr/dao/TitleTransferDAO.class
+com/trianz/ltr/model/LandTitle$TitleStatus.class
+com/trianz/ltr/ejb/LandTitleException$ErrorCode.class
+com/trianz/ltr/model/TitleTransfer.class
