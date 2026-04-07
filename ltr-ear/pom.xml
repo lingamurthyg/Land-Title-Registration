@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.trianz.ltr</groupId>
+        <artifactId>land-title-registry</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ltr-ear</artifactId>
+    <packaging>ear</packaging>
+    <n>Land Title Registry - EAR</n>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.trianz.ltr</groupId>
+            <artifactId>ltr-ejb</artifactId>
+            <version>${project.version}</version>
+            <type>ejb</type>
+        </dependency>
+        <dependency>
+            <groupId>com.trianz.ltr</groupId>
+            <artifactId>ltr-web</artifactId>
+            <version>${project.version}</version>
+            <type>war</type>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-ear-plugin</artifactId>
+                <configuration>
+                    <earName>land-title-registry</earName>
+                    <applicationXml>${project.basedir}/src/main/application/META-INF/application.xml</applicationXml>
+                    <defaultLibBundleDir>lib</defaultLibBundleDir>
+                    <modules>
+                        <ejbModule>
+                            <groupId>com.trianz.ltr</groupId>
+                            <artifactId>ltr-ejb</artifactId>
+                            <bundleFileName>ltr-ejb.jar</bundleFileName>
+                        </ejbModule>
+                        <webModule>
+                            <groupId>com.trianz.ltr</groupId>
+                            <artifactId>ltr-web</artifactId>
+                            <bundleFileName>ltr-web.war</bundleFileName>
+                            <contextRoot>/ltr</contextRoot>
+                        </webModule>
+                    </modules>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

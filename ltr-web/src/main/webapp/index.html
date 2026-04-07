@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Land Title Registry</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; background: #f4f6f9; color: #333; }
+        header { background: #1a3a5c; color: #fff; padding: 16px 32px;
+                 display: flex; align-items: center; gap: 16px; }
+        header h1 { font-size: 20px; }
+        header p  { font-size: 13px; opacity: 0.8; }
+        .main { max-width: 1100px; margin: 32px auto; padding: 0 24px; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap: 20px; }
+        .card { background: #fff; border-radius: 8px; padding: 24px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #1a3a5c; }
+        .card h3 { font-size: 15px; color: #1a3a5c; margin-bottom: 10px; }
+        .card p  { font-size: 13px; color: #666; margin-bottom: 14px; }
+        .endpoint { background: #f8f9fb; border: 1px solid #e0e4ea;
+                    border-radius: 4px; padding: 8px 12px; font-family: monospace;
+                    font-size: 12px; margin-bottom: 6px; }
+        .method { display: inline-block; padding: 2px 7px; border-radius: 3px;
+                  font-weight: bold; font-size: 11px; margin-right: 6px; }
+        .get  { background: #d4edda; color: #155724; }
+        .post { background: #d1ecf1; color: #0c5460; }
+        .put  { background: #fff3cd; color: #856404; }
+        h2 { font-size: 18px; color: #1a3a5c; margin: 32px 0 16px; }
+        .badge { display: inline-block; padding: 3px 10px; border-radius: 12px;
+                 font-size: 11px; font-weight: bold; margin-right: 6px; }
+        .was { background: #e8e0f5; color: #4a0080; }
+        .ejb { background: #fde8e0; color: #801400; }
+        .jndi { background: #e0edf5; color: #00406b; }
+    </style>
+</head>
+<body>
+<header>
+    <svg width="36" height="36" viewBox="0 0 48 48" fill="none">
+        <rect width="48" height="48" rx="6" fill="rgba(255,255,255,0.15)"/>
+        <path d="M24 8L8 18v4h4v16h8v-8h8v8h8V22h4v-4L24 8z" fill="#fff"/>
+    </svg>
+    <div>
+        <h1>Land Title Registry System</h1>
+        <p>Ministry of Lands &nbsp;·&nbsp; IBM WebSphere Application Server 9.x &nbsp;·&nbsp; Java 8 / Maven</p>
+    </div>
+</header>
+
+<div class="main">
+
+    <h2>Technology Stack</h2>
+    <p>
+        <span class="badge was">WAS 9.x</span>
+        <span class="badge ejb">EJB 3.x CMT</span>
+        <span class="badge jndi">JNDI DataSource</span>
+        <span class="badge was">WAS SessionContext</span>
+        <span class="badge ejb">ibm-ejb-jar-bnd.xml</span>
+        <span class="badge jndi">UOWManager</span>
+        <span class="badge was">ibm-web-bnd.xml</span>
+        <span class="badge ejb">JAAS/LDAP Auth</span>
+    </p>
+
+    <h2>API Endpoints</h2>
+    <div class="cards">
+
+        <div class="card">
+            <h3>📋 Title Registration</h3>
+            <p>Register new land parcels into the national registry.</p>
+            <div class="endpoint"><span class="method post">POST</span>/api/titles</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles/{titleNumber}</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles?owner={nationalId}</div>
+            <div class="endpoint"><span class="method put">PUT</span>/api/titles/{titleNumber}</div>
+        </div>
+
+        <div class="card">
+            <h3>🔍 Title Search</h3>
+            <p>Search the registry by status, owner, or keyword.</p>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles?q={keyword}</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles?status=ACTIVE</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles?status=PENDING</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/titles?status=ENCUMBERED</div>
+        </div>
+
+        <div class="card">
+            <h3>🔄 Ownership Transfer</h3>
+            <p>Initiate and approve/reject title transfers with full audit trail.</p>
+            <div class="endpoint"><span class="method post">POST</span>/api/transfers</div>
+            <div class="endpoint"><span class="method get">GET</span>/api/transfers?title={num}</div>
+            <div class="endpoint"><span class="method post">POST</span>/api/transfers/{id}/approve</div>
+            <div class="endpoint"><span class="method post">POST</span>/api/transfers/{id}/reject</div>
+        </div>
+
+        <div class="card">
+            <h3>📊 Supervisor Dashboard</h3>
+            <p>Review and action pending title transfers (SUPERVISOR/ADMIN only).</p>
+            <div class="endpoint"><span class="method get">GET</span>/api/transfers/pending</div>
+        </div>
+
+        <div class="card">
+            <h3>🩺 Health Check</h3>
+            <p>WAS DataSource and EJB container liveness check.</p>
+            <div class="endpoint"><span class="method get">GET</span>/health</div>
+        </div>
+
+    </div>
+
+    <h2>WAS-Specific Blockers (Modernization Assessment)</h2>
+    <div class="cards">
+        <div class="card" style="border-left-color:#e74c3c">
+            <h3>🔴 ibm-ejb-jar-bnd.xml / ibm-web-bnd.xml</h3>
+            <p>WAS-proprietary JNDI binding files. No equivalent on Open Liberty — must be replaced with <code>server.xml</code> bindings or CDI injection.</p>
+        </div>
+        <div class="card" style="border-left-color:#e74c3c">
+            <h3>🔴 com.ibm.websphere.rsadapter.WSDataSource</h3>
+            <p>IBM proprietary DataSource wrapper. Replace with standard <code>@Resource DataSource</code> on Open Liberty.</p>
+        </div>
+        <div class="card" style="border-left-color:#e74c3c">
+            <h3>🔴 com.ibm.wsspi.uow.UOWManager</h3>
+            <p>WAS Unit-of-Work Manager SPI. Replace with standard JTA <code>UserTransaction</code> or CDI <code>@Transactional</code>.</p>
+        </div>
+        <div class="card" style="border-left-color:#f39c12">
+            <h3>🟡 Remote EJB over RMI-IIOP</h3>
+            <p>Remote EJBs work on WAS traditional but are unsupported in Open Liberty. Migrate to JAX-RS REST services.</p>
+        </div>
+        <div class="card" style="border-left-color:#f39c12">
+            <h3>🟡 SessionContext.getCallerPrincipal()</h3>
+            <p>Works on both, but Liberty prefers MicroProfile <code>SecurityContext</code> and MP-JWT for token-based auth.</p>
+        </div>
+        <div class="card" style="border-left-color:#27ae60">
+            <h3>🟢 EJB 3.x CMT / @Stateless</h3>
+            <p>Fully supported on Open Liberty with <code>ejb-3.2</code> feature. Low migration effort.</p>
+        </div>
+    </div>
+
+</div>
+</body>
+</html>

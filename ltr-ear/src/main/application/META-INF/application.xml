@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<application xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee
+             http://xmlns.jcp.org/xml/ns/javaee/application_7.xsd"
+             version="7">
+
+    <display-name>Land Title Registry</display-name>
+    <description>
+        Enterprise Land Title Registry — IBM WebSphere Application Server 9.x
+        Java 8, Maven 3.x
+    </description>
+
+    <module>
+        <ejb>ltr-ejb.jar</ejb>
+    </module>
+
+    <module>
+        <web>
+            <web-uri>ltr-web.war</web-uri>
+            <context-root>/ltr</context-root>
+        </web>
+    </module>
+
+    <!-- Security roles declared at EAR level -->
+    <security-role>
+        <description>Registry data entry officer</description>
+        <role-name>REGISTRY_OFFICER</role-name>
+    </security-role>
+    <security-role>
+        <description>Registry supervisor — approves transfers</description>
+        <role-name>REGISTRY_SUPERVISOR</role-name>
+    </security-role>
+    <security-role>
+        <description>System administrator</description>
+        <role-name>REGISTRY_ADMIN</role-name>
+    </security-role>
+
+</application>

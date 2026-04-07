@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.trianz.ltr</groupId>
+        <artifactId>land-title-registry</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>ltr-web</artifactId>
+    <packaging>war</packaging>
+    <n>Land Title Registry - Web Module</n>
+
+    <dependencies>
+        <!-- EJB client jar from sibling module -->
+        <dependency>
+            <groupId>com.trianz.ltr</groupId>
+            <artifactId>ltr-ejb</artifactId>
+            <version>${project.version}</version>
+            <classifier>client</classifier>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ibm.websphere.appserver</groupId>
+            <artifactId>was_public</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>javax</groupId>
+            <artifactId>javaee-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <configuration>
+                    <warName>ltr-web</warName>
+                    <failOnMissingWebXml>true</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

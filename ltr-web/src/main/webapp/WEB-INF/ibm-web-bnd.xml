@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ibm-web-bnd.xml - IBM WebSphere Application Server Web Module Bindings
+    =======================================================================
+    Maps security roles to WAS LDAP/registry groups and binds the DataSource
+    resource-ref to the WAS-configured JNDI name.
+
+    Configure the actual LDAP groups in:
+      WAS Admin Console → Security → Global Security → LDAP settings
+
+    MODERNIZATION NOTE (Concierto Modernize):
+      This file has NO equivalent on Open Liberty.
+      During migration, map security roles using:
+        - <application-bnd> in server.xml, or
+        - MicroProfile JWT @RolesAllowed with MP-Config role mapping
+-->
+<web-bnd
+    xmlns="http://websphere.ibm.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://websphere.ibm.com/xml/ns/javaee
+        http://websphere.ibm.com/xml/ns/javaee/ibm-web-bnd_1_0.xsd"
+    version="1.0">
+
+    <virtual-host name="default_host"/>
+
+    <!-- Security role → WAS LDAP group mappings -->
+    <security-role name="REGISTRY_OFFICER">
+        <group name="cn=registry-officers,ou=groups,dc=lands,dc=gov,dc=local"/>
+    </security-role>
+
+    <security-role name="REGISTRY_SUPERVISOR">
+        <group name="cn=registry-supervisors,ou=groups,dc=lands,dc=gov,dc=local"/>
+    </security-role>
+
+    <security-role name="REGISTRY_ADMIN">
+        <group name="cn=registry-admins,ou=groups,dc=lands,dc=gov,dc=local"/>
+        <!-- Also map the WAS admin user for deployment testing -->
+        <special-subject type="ALL_AUTHENTICATED_USERS"/>
+    </security-role>
+
+    <!-- Bind res-ref to WAS DataSource JNDI name -->
+    <resource-ref name="jdbc/LandTitleDS"
+                  binding-name="jdbc/LandTitleDS"/>
+
+</web-bnd>

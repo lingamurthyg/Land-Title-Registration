@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    ibm-application-bnd.xml - IBM WebSphere EAR-level Security Bindings
+    =====================================================================
+    Maps application-level security roles to WAS user registry (LDAP/local).
+
+    MODERNIZATION NOTE (Concierto Modernize):
+      Replace with Open Liberty <application-bnd> in server.xml, e.g.:
+        <application name="land-title-registry">
+          <application-bnd>
+            <security-role name="REGISTRY_OFFICER">
+              <group name="registry-officers"/>
+            </security-role>
+          </application-bnd>
+        </application>
+-->
+<application-bnd
+    xmlns="http://websphere.ibm.com/xml/ns/javaee"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://websphere.ibm.com/xml/ns/javaee
+        http://websphere.ibm.com/xml/ns/javaee/ibm-application-bnd_1_2.xsd"
+    version="1.2">
+
+    <security-role name="REGISTRY_OFFICER">
+        <group name="cn=registry-officers,ou=groups,dc=lands,dc=gov,dc=local"/>
+    </security-role>
+
+    <security-role name="REGISTRY_SUPERVISOR">
+        <group name="cn=registry-supervisors,ou=groups,dc=lands,dc=gov,dc=local"/>
+    </security-role>
+
+    <security-role name="REGISTRY_ADMIN">
+        <group name="cn=registry-admins,ou=groups,dc=lands,dc=gov,dc=local"/>
+        <user name="wasadmin"/>
+    </security-role>
+
+</application-bnd>
