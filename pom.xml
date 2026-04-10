@@ -9,24 +9,34 @@
     <groupId>com.trianz.ltr</groupId>
     <artifactId>land-title-registry</artifactId>
     <version>1.0.0</version>
-    <packaging>ear</packaging>
-    <name>Land Title Registry System</name>
+    <packaging>pom</packaging>
+    <name>Land Title Registry System - Cloud Native</name>
     <description>
-        Enterprise Land Title Registry System built on Java 8, Maven, and
-        IBM WebSphere Application Server (WAS 9.x). Demonstrates WAS-specific
-        APIs: EJB 2.x, JNDI lookups, WAS DataSource, IBM TransactionManager,
-        WAS Security, and ibm-web-bnd.xml bindings.
+        Cloud-native Land Title Registry System built on Spring Boot, Java 11, and Maven.
+        Migrated from IBM WebSphere Application Server to cloud-native architecture.
+        Supports deployment on AWS (ECS, EKS, Fargate), Azure (AKS), and GCP (GKE).
+        
+        Key cloud-native features:
+        - Spring Boot with embedded Tomcat (no external app server)
+        - HikariCP connection pooling for AWS RDS
+        - AWS Secrets Manager for credential management
+        - Structured JSON logging for CloudWatch
+        - Health checks for container orchestration
+        - Stateless architecture for horizontal scaling
     </description>
 
     <properties>
-        <java.version>1.8</java.version>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <java.version>11</java.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- WAS 9.x API version -->
-        <was.version>9.0.0</was.version>
-
+        <!-- Spring Boot version -->
+        <spring.boot.version>2.7.18</spring.boot.version>
+        
+        <!-- AWS SDK version -->
+        <aws.sdk.version>2.20.26</aws.sdk.version>
+        
         <!-- Module versions -->
         <ltr.ejb.version>1.0.0</ltr.ejb.version>
         <ltr.web.version>1.0.0</ltr.web.version>
@@ -41,50 +51,79 @@
     <dependencyManagement>
         <dependencies>
 
-            <!-- ============================================================
-                 IBM WebSphere Application Server Public API (WAS 9.x)
-                 Install from WAS installation:
-                   mvn install:install-file \
-                     -Dfile=/opt/WebSphere/AppServer/dev/was_public.jar \
-                     -DpomFile=/opt/WebSphere/AppServer/dev/was_public-9.0.0.pom
-                 ============================================================ -->
+            <!-- Spring Boot BOM for dependency management -->
             <dependency>
-                <groupId>com.ibm.websphere.appserver</groupId>
-                <artifactId>was_public</artifactId>
-                <version>${was.version}</version>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring.boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- AWS SDK BOM for dependency management -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Jakarta EE API (replaces Java EE) -->
+            <dependency>
+                <groupId>jakarta.platform</groupId>
+                <artifactId>jakarta.jakartaee-api</artifactId>
+                <version>9.1.0</version>
                 <scope>provided</scope>
             </dependency>
 
-            <!-- Java EE 7 APIs (provided by WAS 9.x) -->
+            <!-- HikariCP Connection Pool -->
             <dependency>
-                <groupId>javax</groupId>
-                <artifactId>javaee-api</artifactId>
-                <version>7.0</version>
-                <scope>provided</scope>
+                <groupId>com.zaxxer</groupId>
+                <artifactId>HikariCP</artifactId>
+                <version>5.0.1</version>
             </dependency>
 
-            <!-- IBM WAS Transaction Manager API (provided by WAS) -->
+            <!-- PostgreSQL JDBC Driver (AWS RDS compatible) -->
             <dependency>
-                <groupId>com.ibm.websphere</groupId>
-                <artifactId>uow</artifactId>
-                <version>${was.version}</version>
-                <scope>provided</scope>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>42.6.0</version>
             </dependency>
 
-            <!-- JUnit 4 for testing -->
+            <!-- SLF4J Logging API -->
             <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>4.13.2</version>
-                <scope>test</scope>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.7</version>
             </dependency>
 
-            <!-- Mockito for unit testing -->
+            <!-- Logback for structured logging -->
             <dependency>
-                <groupId>org.mockito</groupId>
-                <artifactId>mockito-core</artifactId>
-                <version>2.28.2</version>
-                <scope>test</scope>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>1.4.11</version>
+            </dependency>
+
+            <!-- Logback JSON encoder for cloud-native logging -->
+            <dependency>
+                <groupId>net.logstash.logback</groupId>
+                <artifactId>logstash-logback-encoder</artifactId>
+                <version>7.4</version>
+            </dependency>
+
+            <!-- Jackson for JSON processing -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>2.15.2</version>
+            </dependency>
+
+            <!-- Jackson Java 8 Date/Time support -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>2.15.2</version>
             </dependency>
 
             <!-- Apache Commons Lang -->
@@ -94,25 +133,27 @@
                 <version>3.12.0</version>
             </dependency>
 
-            <!-- Apache Commons DBCP2 (connection pool - used alongside WAS DS) -->
+            <!-- Micrometer for metrics (CloudWatch integration) -->
             <dependency>
-                <groupId>org.apache.commons</groupId>
-                <artifactId>commons-dbcp2</artifactId>
-                <version>2.9.0</version>
+                <groupId>io.micrometer</groupId>
+                <artifactId>micrometer-registry-cloudwatch2</artifactId>
+                <version>1.11.0</version>
             </dependency>
 
-            <!-- SLF4J Logging -->
+            <!-- JUnit 5 for testing -->
             <dependency>
-                <groupId>org.slf4j</groupId>
-                <artifactId>slf4j-api</artifactId>
-                <version>1.7.36</version>
+                <groupId>org.junit.jupiter</groupId>
+                <artifactId>junit-jupiter</artifactId>
+                <version>5.9.3</version>
+                <scope>test</scope>
             </dependency>
 
-            <!-- Jackson for JSON responses -->
+            <!-- Mockito for unit testing -->
             <dependency>
-                <groupId>com.fasterxml.jackson.core</groupId>
-                <artifactId>jackson-databind</artifactId>
-                <version>2.13.5</version>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-core</artifactId>
+                <version>5.3.1</version>
+                <scope>test</scope>
             </dependency>
 
         </dependencies>
@@ -121,45 +162,97 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- Maven Compiler Plugin -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.8.1</version>
+                    <version>3.11.0</version>
                     <configuration>
                         <source>${java.version}</source>
                         <target>${java.version}</target>
+                        <release>11</release>
                     </configuration>
                 </plugin>
 
+                <!-- Spring Boot Maven Plugin -->
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-ejb-plugin</artifactId>
-                    <version>3.1.0</version>
-                    <configuration>
-                        <ejbVersion>3.1</ejbVersion>
-                        <generateClient>true</generateClient>
-                    </configuration>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <version>${spring.boot.version}</version>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>repackage</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
 
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-war-plugin</artifactId>
-                    <version>3.3.2</version>
-                </plugin>
-
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-ear-plugin</artifactId>
-                    <version>3.2.0</version>
-                </plugin>
-
+                <!-- Maven Surefire Plugin for tests -->
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>2.22.2</version>
+                    <version>3.0.0</version>
                 </plugin>
+
+                <!-- Maven JAR Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.3.0</version>
+                </plugin>
+
+                <!-- Maven Resources Plugin -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+
             </plugins>
         </pluginManagement>
     </build>
+
+    <!-- Cloud deployment profiles -->
+    <profiles>
+        <!-- AWS deployment profile -->
+        <profile>
+            <id>aws</id>
+            <properties>
+                <cloud.provider>aws</cloud.provider>
+                <spring.profiles.active>aws</spring.profiles.active>
+            </properties>
+        </profile>
+
+        <!-- Azure deployment profile -->
+        <profile>
+            <id>azure</id>
+            <properties>
+                <cloud.provider>azure</cloud.provider>
+                <spring.profiles.active>azure</spring.profiles.active>
+            </properties>
+        </profile>
+
+        <!-- GCP deployment profile -->
+        <profile>
+            <id>gcp</id>
+            <properties>
+                <cloud.provider>gcp</cloud.provider>
+                <spring.profiles.active>gcp</spring.profiles.active>
+            </properties>
+        </profile>
+
+        <!-- Local development profile -->
+        <profile>
+            <id>local</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <cloud.provider>local</cloud.provider>
+                <spring.profiles.active>local</spring.profiles.active>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>

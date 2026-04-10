@@ -3,47 +3,29 @@ package com.trianz.ltr.dao;
 import com.trianz.ltr.model.TitleTransfer;
 import com.trianz.ltr.model.TitleTransfer.TransferStatus;
 import com.trianz.ltr.model.TitleTransfer.TransferType;
-import com.trianz.ltr.util.WASDataSourceUtil;
+import com.trianz.ltr.util.CloudDataSourceUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * TitleTransferDAO - JDBC DAO for TITLE_TRANSFER_HISTORY table.
- *
- *   CREATE TABLE TITLE_TRANSFER_HISTORY (
- *     TRANSFER_ID           BIGINT         PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
- *     TITLE_NUMBER          VARCHAR(30)    NOT NULL REFERENCES LAND_TITLE(TITLE_NUMBER),
- *     PREV_OWNER_NATIONAL_ID VARCHAR(50),
- *     PREV_OWNER_NAME       VARCHAR(200),
- *     NEW_OWNER_NATIONAL_ID  VARCHAR(50)   NOT NULL,
- *     NEW_OWNER_NAME         VARCHAR(200)  NOT NULL,
- *     NEW_OWNER_EMAIL        VARCHAR(200),
- *     NEW_OWNER_PHONE        VARCHAR(50),
- *     TRANSFER_TYPE          VARCHAR(30),
- *     TRANSFER_STATUS        VARCHAR(30)   DEFAULT 'INITIATED',
- *     TRANSFER_PRICE         DECIMAL(18,2),
- *     CURRENCY_CODE          CHAR(3)       DEFAULT 'USD',
- *     STAMP_DUTY_PAID        DECIMAL(18,2),
- *     TRANSFER_DATE          TIMESTAMP     DEFAULT CURRENT_TIMESTAMP,
- *     EFFECTIVE_DATE         TIMESTAMP,
- *     DEED_NUMBER            VARCHAR(100),
- *     NOTARY_NATIONAL_ID     VARCHAR(50),
- *     NOTARY_NAME            VARCHAR(200),
- *     INITIATED_BY           VARCHAR(100),
- *     APPROVED_BY            VARCHAR(100),
- *     APPROVED_DATE          TIMESTAMP,
- *     REJECTION_REASON       VARCHAR(500),
- *     REMARKS                VARCHAR(1000)
- *   );
+ * 
+ * Cloud-native improvements:
+ * - Uses CloudDataSourceUtil with HikariCP connection pooling
+ * - Uses java.time.Instant for all timestamps (UTC)
+ * - Structured logging with SLF4J
+ * - Proper exception handling for cloud environments
  */
 public class TitleTransferDAO {
 
-    private static final Logger LOGGER = Logger.getLogger(TitleTransferDAO.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(TitleTransferDAO.class);
 
     private static final String SQL_INSERT =
         "INSERT INTO TITLE_TRANSFER_HISTORY " +
@@ -72,7 +54,7 @@ public class TitleTransferDAO {
     public Long insert(TitleTransfer tr) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_INSERT, Statement.RETURN_GENERATED_KEYS)) {
                 ps.setString(1,  tr.getTitleNumber());
                 ps.setString(2,  tr.getPreviousOwnerNationalId());
@@ -88,9 +70,9 @@ public class TitleTransferDAO {
                 ps.setString(11, tr.getCurrencyCode());
                 setBigDecimal(ps, 12, tr.getStampDutyPaid());
                 ps.setTimestamp(13, tr.getTransferDate() != null
-                        ? new Timestamp(tr.getTransferDate().getTime()) : new Timestamp(System.currentTimeMillis()));
+                        ? Timestamp.from(tr.getTransferDate()) : Timestamp.from(Instant.now()));
                 ps.setTimestamp(14, tr.getEffectiveDate() != null
-                        ? new Timestamp(tr.getEffectiveDate().getTime()) : null);
+                        ? Timestamp.from(tr.getEffectiveDate()) : null);
                 ps.setString(15, tr.getTransferDeedNumber());
                 ps.setString(16, tr.getNotaryNationalId());
                 ps.setString(17, tr.getNotaryName());
@@ -102,16 +84,17 @@ public class TitleTransferDAO {
                     if (generatedKeys.next()) {
                         Long id = generatedKeys.getLong(1);
                         tr.setTransferId(id);
+                        LOGGER.info("Inserted TitleTransfer with ID: {}", id);
                         return id;
                     }
                 }
                 return null;
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to insert TitleTransfer", e);
+            LOGGER.error("Failed to insert TitleTransfer for title: {}", tr.getTitleNumber(), e);
             throw new SQLException("Insert TitleTransfer failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -120,19 +103,21 @@ public class TitleTransferDAO {
     public List<TitleTransfer> findByTitleNumber(String titleNumber) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_BY_TITLE)) {
                 ps.setString(1, titleNumber);
                 try (ResultSet rs = ps.executeQuery()) {
                     List<TitleTransfer> list = new ArrayList<>();
                     while (rs.next()) list.add(mapRow(rs));
+                    LOGGER.debug("Found {} transfers for title: {}", list.size(), titleNumber);
                     return list;
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("findByTitleNumber(transfer) failed for: {}", titleNumber, e);
             throw new SQLException("findByTitleNumber(transfer) failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -141,17 +126,19 @@ public class TitleTransferDAO {
     public List<TitleTransfer> findPendingApprovals() throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_PENDING);
                  ResultSet rs = ps.executeQuery()) {
                 List<TitleTransfer> list = new ArrayList<>();
                 while (rs.next()) list.add(mapRow(rs));
+                LOGGER.debug("Found {} pending transfers", list.size());
                 return list;
             }
         } catch (Exception e) {
+            LOGGER.error("findPendingApprovals failed", e);
             throw new SQLException("findPendingApprovals failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -161,19 +148,22 @@ public class TitleTransferDAO {
                             String approvedBy, String rejectionReason) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
                 ps.setString(1, status.name());
                 ps.setString(2, approvedBy);
-                ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+                ps.setTimestamp(3, Timestamp.from(Instant.now()));
                 ps.setString(4, rejectionReason);
                 ps.setLong(5, transferId);
-                return ps.executeUpdate();
+                int rows = ps.executeUpdate();
+                LOGGER.info("Updated transfer {} status to {}, rows: {}", transferId, status, rows);
+                return rows;
             }
         } catch (Exception e) {
+            LOGGER.error("updateStatus(transfer) failed for ID: {}", transferId, e);
             throw new SQLException("updateStatus(transfer) failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -201,10 +191,10 @@ public class TitleTransferDAO {
         tr.setStampDutyPaid(rs.getBigDecimal("STAMP_DUTY_PAID"));
 
         Timestamp td = rs.getTimestamp("TRANSFER_DATE");
-        if (td != null) tr.setTransferDate(new java.util.Date(td.getTime()));
+        if (td != null) tr.setTransferDate(td.toInstant());
 
         Timestamp ed = rs.getTimestamp("EFFECTIVE_DATE");
-        if (ed != null) tr.setEffectiveDate(new java.util.Date(ed.getTime()));
+        if (ed != null) tr.setEffectiveDate(ed.toInstant());
 
         tr.setTransferDeedNumber(rs.getString("DEED_NUMBER"));
         tr.setNotaryNationalId(rs.getString("NOTARY_NATIONAL_ID"));
@@ -213,7 +203,7 @@ public class TitleTransferDAO {
         tr.setApprovedBy(rs.getString("APPROVED_BY"));
 
         Timestamp ad = rs.getTimestamp("APPROVED_DATE");
-        if (ad != null) tr.setApprovedDate(new java.util.Date(ad.getTime()));
+        if (ad != null) tr.setApprovedDate(ad.toInstant());
 
         tr.setRejectionReason(rs.getString("REJECTION_REASON"));
         tr.setRemarks(rs.getString("REMARKS"));

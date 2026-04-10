@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback Configuration for Cloud-Native Structured Logging
+    
+    Replaces java.util.logging with SLF4J/Logback for cloud environments.
+    Outputs JSON format for AWS CloudWatch Logs Insights.
+    
+    Cloud-Ready Features:
+    - Structured JSON logging for CloudWatch Logs Insights
+    - Console-only output (no file logging in containers)
+    - Correlation IDs for distributed tracing
+    - UTC timestamps for consistency
+    - Request/response logging
+    - Performance metrics logging
+    
+    AWS Integration:
+    - CloudWatch Logs: Automatic JSON parsing
+    - CloudWatch Logs Insights: Query structured fields
+    - X-Ray: Correlation ID integration
+    - CloudWatch Metrics: Custom metric extraction
+-->
+<configuration>
+
+    <!-- Console appender with JSON format for CloudWatch -->
+    <appender name="CONSOLE_JSON" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Use UTC timezone for all timestamps -->
+            <timeZone>UTC</timeZone>
+            
+            <!-- Include standard fields -->
+            <includeMdcKeyName>correlationId</includeMdcKeyName>
+            <includeMdcKeyName>userId</includeMdcKeyName>
+            <includeMdcKeyName>requestId</includeMdcKeyName>
+            
+            <!-- Custom fields -->
+            <customFields>{"application":"land-title-registry","environment":"${ENVIRONMENT:-dev}"}</customFields>
+            
+            <!-- Include caller data for debugging -->
+            <includeCallerData>false</includeCallerData>
+            
+            <!-- Include context name -->
+            <includeContext>true</includeContext>
+        </encoder>
+    </appender>
+
+    <!-- Console appender with plain text format for local development -->
+    <appender name="CONSOLE_PLAIN" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- Async appender for better performance -->
+    <appender name="ASYNC_CONSOLE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="${LOG_FORMAT:-CONSOLE_JSON}" />
+    </appender>
+
+    <!-- Root logger -->
+    <root level="${LOG_LEVEL:-INFO}">
+        <appender-ref ref="ASYNC_CONSOLE" />
+    </root>
+
+    <!-- Application loggers -->
+    <logger name="com.trianz.ltr" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC_CONSOLE" />
+    </logger>
+
+    <!-- Spring Framework loggers -->
+    <logger name="org.springframework.web" level="INFO" />
+    <logger name="org.springframework.security" level="INFO" />
+    <logger name="org.springframework.boot" level="INFO" />
+
+    <!-- Hibernate loggers -->
+    <logger name="org.hibernate.SQL" level="DEBUG" />
+    <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="TRACE" />
+
+    <!-- HikariCP logger -->
+    <logger name="com.zaxxer.hikari" level="INFO" />
+
+    <!-- AWS SDK loggers -->
+    <logger name="software.amazon.awssdk" level="INFO" />
+
+    <!-- Reduce noise from common libraries -->
+    <logger name="org.apache.catalina" level="WARN" />
+    <logger name="org.apache.tomcat" level="WARN" />
+
+</configuration>

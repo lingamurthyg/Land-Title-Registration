@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: ltr-postgres
+    environment:
+      POSTGRES_DB: landtitle
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ltr-network
+
+  # Land Title Registry Application
+  ltr-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ltr-web
+    environment:
+      # Database Configuration
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: landtitle
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      
+      # Spring Configuration
+      SPRING_PROFILES_ACTIVE: local
+      SERVER_PORT: 8080
+      
+      # Connection Pool
+      DB_POOL_MAX_SIZE: 20
+      DB_POOL_MIN_IDLE: 5
+      
+      # Logging
+      LOGGING_LEVEL_ROOT: INFO
+      LOGGING_LEVEL_COM_TRIANZ_LTR: DEBUG
+      
+      # AWS Configuration (for local testing)
+      AWS_REGION: us-east-1
+      
+      # Application
+      ENVIRONMENT: local
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - ltr-network
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  ltr-network:
+    driver: bridge

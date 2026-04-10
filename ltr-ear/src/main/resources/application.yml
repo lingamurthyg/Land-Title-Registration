@@ -1,0 +1,132 @@
+# ============================================================================
+# Land Title Registry - Cloud Native Configuration
+# ============================================================================
+# This configuration uses environment variables for cloud deployment (12-factor app)
+# AWS ECS/EKS task definitions should set these environment variables
+# ============================================================================
+
+spring:
+  application:
+    name: land-title-registry
+  
+  # ============================================================================
+  # DataSource Configuration (AWS RDS)
+  # ============================================================================
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/ltrdb}
+    username: ${DB_USERNAME:ltr_user}
+    password: ${DB_PASSWORD:changeme}
+    driver-class-name: org.postgresql.Driver
+    
+    # HikariCP Connection Pool Settings (Cloud-optimized)
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      minimum-idle: ${DB_MIN_IDLE:2}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+      pool-name: LTR-HikariCP-Pool
+      leak-detection-threshold: 60000
+  
+  # ============================================================================
+  # JPA Configuration (Optional - if using Spring Data JPA)
+  # ============================================================================
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  
+  # ============================================================================
+  # Server Configuration (Embedded Tomcat)
+  # ============================================================================
+server:
+  port: ${SERVER_PORT:8080}
+  servlet:
+    context-path: /ltr
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}
+      min-spare: ${TOMCAT_MIN_THREADS:10}
+    connection-timeout: 20000
+    max-connections: 10000
+    accept-count: 100
+
+# ============================================================================
+# Actuator Configuration (Health Checks for AWS ELB/ALB)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  metrics:
+    export:
+      cloudwatch:
+        enabled: ${CLOUDWATCH_METRICS_ENABLED:false}
+        namespace: LandTitleRegistry
+        step: 1m
+
+# ============================================================================
+# Logging Configuration (CloudWatch Logs)
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.trianz.ltr: ${LOG_LEVEL:INFO}
+    org.springframework: WARN
+    org.hibernate: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:/var/log/ltr/application.log}
+    max-size: 10MB
+    max-history: 30
+
+# ============================================================================
+# Application-Specific Configuration
+# ============================================================================
+ltr:
+  application:
+    name: Land Title Registry
+    version: 2.0.0-cloud
+    environment: ${ENVIRONMENT:development}
+  
+  # AWS Configuration
+  aws:
+    region: ${AWS_REGION:us-east-1}
+    secrets-manager:
+      enabled: ${AWS_SECRETS_ENABLED:false}
+      secret-name: ${AWS_SECRET_NAME:ltr/database}
+    s3:
+      bucket: ${AWS_S3_BUCKET:ltr-documents}
+  
+  # Database Configuration
+  database:
+    pool-size: ${DB_POOL_SIZE:10}
+    connection-timeout: ${DB_CONNECTION_TIMEOUT:30000}
+  
+  # Thread Pool Configuration
+  thread-pool:
+    dao-pool-size: ${DAO_THREAD_POOL_SIZE:10}

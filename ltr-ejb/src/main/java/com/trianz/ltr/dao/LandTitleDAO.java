@@ -3,58 +3,30 @@ package com.trianz.ltr.dao;
 import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.LandTitle.LandUseType;
-import com.trianz.ltr.util.WASDataSourceUtil;
+import com.trianz.ltr.util.CloudDataSourceUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * LandTitleDAO - JDBC Data Access Object for LAND_TITLE table.
- *
- * Obtains connections from the WAS-managed DataSource (JNDI: jdbc/LandTitleDS).
- * Uses standard JDBC; transactions are managed by the calling EJB (CMT).
- *
- * DATABASE SCHEMA (Oracle / DB2 / PostgreSQL compatible):
- *
- *   CREATE TABLE LAND_TITLE (
- *     TITLE_NUMBER       VARCHAR(30)    PRIMARY KEY,
- *     PARCEL_ID          VARCHAR(50)    NOT NULL UNIQUE,
- *     LEGAL_DESCRIPTION  CLOB,
- *     AREA_SQM           DECIMAL(15,4),
- *     STATUS             VARCHAR(20)    DEFAULT 'PENDING',
- *     LAND_USE_TYPE      VARCHAR(30),
- *     STREET_ADDRESS     VARCHAR(200),
- *     SUBURB             VARCHAR(100),
- *     CITY               VARCHAR(100),
- *     STATE_PROVINCE     VARCHAR(100),
- *     COUNTRY            VARCHAR(100),
- *     POSTAL_CODE        VARCHAR(20),
- *     LATITUDE           DECIMAL(10,7),
- *     LONGITUDE          DECIMAL(10,7),
- *     OWNER_NATIONAL_ID  VARCHAR(50)    NOT NULL,
- *     OWNER_FULL_NAME    VARCHAR(200)   NOT NULL,
- *     OWNER_EMAIL        VARCHAR(200),
- *     OWNER_PHONE        VARCHAR(50),
- *     ASSESSED_VALUE     DECIMAL(18,2),
- *     MARKET_VALUE       DECIMAL(18,2),
- *     CURRENCY_CODE      CHAR(3)        DEFAULT 'USD',
- *     REGISTRATION_DATE  TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
- *     LAST_MODIFIED_DATE TIMESTAMP,
- *     REGISTERED_BY      VARCHAR(100),
- *     LAST_MODIFIED_BY   VARCHAR(100),
- *     HAS_LIEN           SMALLINT       DEFAULT 0,
- *     HAS_MORTGAGE       SMALLINT       DEFAULT 0,
- *     ENCUMBRANCE_DETAIL CLOB,
- *     REMARKS            VARCHAR(1000)
- *   );
+ * 
+ * Cloud-native improvements:
+ * - Uses CloudDataSourceUtil with HikariCP connection pooling
+ * - Uses java.time.Instant for all timestamps (UTC)
+ * - Structured logging with SLF4J
+ * - Proper exception handling for cloud environments
+ * - Connection timeout handling
  */
 public class LandTitleDAO {
 
-    private static final Logger LOGGER = Logger.getLogger(LandTitleDAO.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(LandTitleDAO.class);
 
     // ── SQL Statements ──────────────────────────────────────────────────────────
 
@@ -91,9 +63,6 @@ public class LandTitleDAO {
     private static final String SQL_DELETE =
         "DELETE FROM LAND_TITLE WHERE TITLE_NUMBER = ?";
 
-    private static final String SQL_COUNT_BY_STATUS =
-        "SELECT STATUS, COUNT(*) AS CNT FROM LAND_TITLE GROUP BY STATUS";
-
     private static final String SQL_SEARCH =
         "SELECT * FROM LAND_TITLE WHERE " +
         "(UPPER(OWNER_FULL_NAME) LIKE UPPER(?) OR UPPER(CITY) LIKE UPPER(?) " +
@@ -104,7 +73,7 @@ public class LandTitleDAO {
     public void insert(LandTitle t) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_INSERT)) {
                 ps.setString(1,  t.getTitleNumber());
                 ps.setString(2,  t.getParcelId());
@@ -128,20 +97,20 @@ public class LandTitleDAO {
                 setBigDecimal(ps, 20, t.getMarketValue());
                 ps.setString(21, t.getCurrencyCode());
                 ps.setTimestamp(22, t.getRegistrationDate() != null
-                        ? new Timestamp(t.getRegistrationDate().getTime()) : new Timestamp(System.currentTimeMillis()));
+                        ? Timestamp.from(t.getRegistrationDate()) : Timestamp.from(Instant.now()));
                 ps.setString(23, t.getRegisteredBy());
                 ps.setInt(24, t.isHasLien() ? 1 : 0);
                 ps.setInt(25, t.isHasMortgage() ? 1 : 0);
                 ps.setString(26, t.getEncumbranceDetails());
                 ps.setString(27, t.getRemarks());
                 ps.executeUpdate();
-                LOGGER.info("Inserted LandTitle: " + t.getTitleNumber());
+                LOGGER.info("Inserted LandTitle: {}", t.getTitleNumber());
             }
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to insert LandTitle: " + t.getTitleNumber(), e);
+            LOGGER.error("Failed to insert LandTitle: {}", t.getTitleNumber(), e);
             throw new SQLException("Insert failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -150,7 +119,7 @@ public class LandTitleDAO {
     public LandTitle findByTitleNumber(String titleNumber) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_BY_TITLE)) {
                 ps.setString(1, titleNumber);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -158,9 +127,10 @@ public class LandTitleDAO {
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("findByTitleNumber failed for: {}", titleNumber, e);
             throw new SQLException("findByTitleNumber failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -169,7 +139,7 @@ public class LandTitleDAO {
     public LandTitle findByParcelId(String parcelId) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_BY_PARCEL)) {
                 ps.setString(1, parcelId);
                 try (ResultSet rs = ps.executeQuery()) {
@@ -177,9 +147,10 @@ public class LandTitleDAO {
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("findByParcelId failed for: {}", parcelId, e);
             throw new SQLException("findByParcelId failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -188,19 +159,21 @@ public class LandTitleDAO {
     public List<LandTitle> findByOwner(String ownerNationalId) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_BY_OWNER)) {
                 ps.setString(1, ownerNationalId);
                 try (ResultSet rs = ps.executeQuery()) {
                     List<LandTitle> list = new ArrayList<>();
                     while (rs.next()) list.add(mapRow(rs));
+                    LOGGER.debug("Found {} titles for owner: {}", list.size(), ownerNationalId);
                     return list;
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("findByOwner failed for: {}", ownerNationalId, e);
             throw new SQLException("findByOwner failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -209,19 +182,21 @@ public class LandTitleDAO {
     public List<LandTitle> findByStatus(TitleStatus status) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SELECT_BY_STATUS)) {
                 ps.setString(1, status.name());
                 try (ResultSet rs = ps.executeQuery()) {
                     List<LandTitle> list = new ArrayList<>();
                     while (rs.next()) list.add(mapRow(rs));
+                    LOGGER.debug("Found {} titles with status: {}", list.size(), status);
                     return list;
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("findByStatus failed for: {}", status, e);
             throw new SQLException("findByStatus failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -231,7 +206,7 @@ public class LandTitleDAO {
         Connection conn = null;
         String pattern = "%" + keyword + "%";
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_SEARCH)) {
                 ps.setString(1, pattern);
                 ps.setString(2, pattern);
@@ -239,13 +214,15 @@ public class LandTitleDAO {
                 try (ResultSet rs = ps.executeQuery()) {
                     List<LandTitle> list = new ArrayList<>();
                     while (rs.next()) list.add(mapRow(rs));
+                    LOGGER.debug("Search for '{}' returned {} results", keyword, list.size());
                     return list;
                 }
             }
         } catch (Exception e) {
+            LOGGER.error("search failed for keyword: {}", keyword, e);
             throw new SQLException("search failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -254,7 +231,7 @@ public class LandTitleDAO {
     public int update(LandTitle t) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE)) {
                 ps.setString(1,  t.getStatus().name());
                 ps.setString(2,  t.getOwnerNationalId());
@@ -264,19 +241,22 @@ public class LandTitleDAO {
                 setBigDecimal(ps, 6, t.getAssessedValue());
                 setBigDecimal(ps, 7, t.getMarketValue());
                 ps.setTimestamp(8, t.getLastModifiedDate() != null
-                        ? new Timestamp(t.getLastModifiedDate().getTime()) : new Timestamp(System.currentTimeMillis()));
+                        ? Timestamp.from(t.getLastModifiedDate()) : Timestamp.from(Instant.now()));
                 ps.setString(9,  t.getLastModifiedBy());
                 ps.setInt(10, t.isHasLien() ? 1 : 0);
                 ps.setInt(11, t.isHasMortgage() ? 1 : 0);
                 ps.setString(12, t.getEncumbranceDetails());
                 ps.setString(13, t.getRemarks());
                 ps.setString(14, t.getTitleNumber());
-                return ps.executeUpdate();
+                int rows = ps.executeUpdate();
+                LOGGER.info("Updated LandTitle: {}, rows affected: {}", t.getTitleNumber(), rows);
+                return rows;
             }
         } catch (Exception e) {
+            LOGGER.error("update failed for: {}", t.getTitleNumber(), e);
             throw new SQLException("update failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -285,18 +265,21 @@ public class LandTitleDAO {
     public int updateStatus(String titleNumber, TitleStatus status, String modifiedBy) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
                 ps.setString(1, status.name());
-                ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
+                ps.setTimestamp(2, Timestamp.from(Instant.now()));
                 ps.setString(3, modifiedBy);
                 ps.setString(4, titleNumber);
-                return ps.executeUpdate();
+                int rows = ps.executeUpdate();
+                LOGGER.info("Updated status for {}: {} -> {}, rows: {}", titleNumber, status, modifiedBy, rows);
+                return rows;
             }
         } catch (Exception e) {
+            LOGGER.error("updateStatus failed for: {}", titleNumber, e);
             throw new SQLException("updateStatus failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -305,15 +288,18 @@ public class LandTitleDAO {
     public int delete(String titleNumber) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = CloudDataSourceUtil.getConnection();
             try (PreparedStatement ps = conn.prepareStatement(SQL_DELETE)) {
                 ps.setString(1, titleNumber);
-                return ps.executeUpdate();
+                int rows = ps.executeUpdate();
+                LOGGER.info("Deleted LandTitle: {}, rows: {}", titleNumber, rows);
+                return rows;
             }
         } catch (Exception e) {
+            LOGGER.error("delete failed for: {}", titleNumber, e);
             throw new SQLException("delete failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            CloudDataSourceUtil.closeQuietly(conn);
         }
     }
 
@@ -349,10 +335,10 @@ public class LandTitleDAO {
         t.setCurrencyCode(rs.getString("CURRENCY_CODE"));
 
         Timestamp reg = rs.getTimestamp("REGISTRATION_DATE");
-        if (reg != null) t.setRegistrationDate(new java.util.Date(reg.getTime()));
+        if (reg != null) t.setRegistrationDate(reg.toInstant());
 
         Timestamp mod = rs.getTimestamp("LAST_MODIFIED_DATE");
-        if (mod != null) t.setLastModifiedDate(new java.util.Date(mod.getTime()));
+        if (mod != null) t.setLastModifiedDate(mod.toInstant());
 
         t.setRegisteredBy(rs.getString("REGISTERED_BY"));
         t.setLastModifiedBy(rs.getString("LAST_MODIFIED_BY"));

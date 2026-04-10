@@ -4,26 +4,23 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.Remote;
 import java.util.List;
 
 /**
- * LandTitleRegistryRemote - EJB 3.x Remote Business Interface.
+ * LandTitleRegistryRemote - Remote service interface for Land Title Registry.
  *
- * Exposed over RMI-IIOP by WAS for:
- *   - Remote EJB clients (other WAS applications)
- *   - External Java SE clients via JNDI lookup
+ * Cloud-native migration:
+ * - Removed @Remote EJB annotation (not needed in cloud environments)
+ * - In cloud deployments, expose via REST API instead of RMI-IIOP
+ * - Use Spring @RestController with this interface as service layer
+ * - Compatible with AWS API Gateway, Azure API Management, GCP Cloud Endpoints
  *
- * WAS JNDI binding (ibm-ejb-jar-bnd.xml):
- *   ejb/LandTitleRegistryRemote
- *
- * ──────────────────────────────────────────────────────────────────────────────
- * MODERNIZATION NOTE:
- *   Replace with a JAX-RS REST endpoint on Open Liberty.
- *   Remote EJBs are not supported in Open Liberty by default.
- * ──────────────────────────────────────────────────────────────────────────────
+ * MIGRATION PATH:
+ *   - Replace RMI-IIOP remote calls with REST API calls
+ *   - Use Spring Cloud OpenFeign for service-to-service communication
+ *   - Implement REST controllers that delegate to this service interface
+ *   - Use AWS ALB/NLB for load balancing instead of WAS clustering
  */
-@Remote
 public interface LandTitleRegistryRemote {
 
     /**
@@ -75,7 +72,7 @@ public interface LandTitleRegistryRemote {
     Long initiateTransfer(TitleTransfer transfer) throws LandTitleException;
 
     /**
-     * Approve a pending transfer — updates title ownership in a single XA transaction.
+     * Approve a pending transfer — updates title ownership in a single transaction.
      */
     void approveTransfer(Long transferId, String approvedByPrincipal) throws LandTitleException;
 

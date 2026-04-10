@@ -8,7 +8,13 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.EJB;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -16,20 +22,25 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- * TitleRegistryServlet - Front-controller servlet for the Land Title Registry.
+ * TitleRegistryServlet - REST API controller for the Land Title Registry.
  *
- * WAS-SPECIFIC FEATURES:
- *   - @EJB injection resolved by WAS EJB container from ibm-ejb-jar-bnd.xml bindings
- *   - HttpServletRequest.getUserPrincipal() returns WAS JAAS-authenticated user
- *   - HttpServletRequest.isUserInRole() checks WAS security roles
+ * Cloud-native migration:
+ * - Replaced @EJB injection with Spring @Autowired
+ * - Replaced HttpServletRequest.getUserPrincipal() with Spring SecurityContextHolder
+ * - Uses SLF4J for structured logging (cloud-compatible)
+ * - Ready for containerization (AWS ECS, EKS, Azure AKS, GCP GKE)
+ *
+ * MIGRATION NOTE:
+ *   Consider migrating to Spring @RestController for better cloud-native patterns:
+ *   - Automatic JSON serialization
+ *   - Exception handling with @ControllerAdvice
+ *   - OpenAPI/Swagger documentation
+ *   - Spring Cloud integration
  *
  * URL patterns:
  *   GET  /api/titles/{titleNumber}         → getTitleByNumber
@@ -43,18 +54,15 @@ import java.util.logging.Logger;
  *   POST /api/transfers/{id}/approve       → approveTransfer
  *   POST /api/transfers/{id}/reject        → rejectTransfer
  *   GET  /api/transfers?title={titleNum}   → getTransferHistory
- *
- * MODERNIZATION NOTE:
- *   Replace this servlet with JAX-RS @Path resources on Open Liberty.
  */
 @WebServlet(name = "TitleRegistryServlet", urlPatterns = {"/api/titles/*", "/api/transfers/*"})
 public class TitleRegistryServlet extends HttpServlet {
 
-    private static final Logger LOGGER = Logger.getLogger(TitleRegistryServlet.class.getName());
-    private static final long serialVersionUID = 1L;
+    private static final Logger LOGGER = LoggerFactory.getLogger(TitleRegistryServlet.class);
+    private static final long serialVersionUID = 2L; // Incremented for cloud migration
 
-    /** WAS EJB container injects the Local EJB from the same EAR */
-    @EJB(beanName = "LandTitleRegistry")
+    /** Spring-managed service (injected via @Autowired) */
+    @Autowired
     private LandTitleRegistryLocal registryBean;
 
     private ObjectMapper mapper;
@@ -64,6 +72,7 @@ public class TitleRegistryServlet extends HttpServlet {
         mapper = new ObjectMapper();
         mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
         mapper.findAndRegisterModules();
+        LOGGER.info("TitleRegistryServlet initialized with cloud-native configuration");
     }
 
     // ── GET ────────────────────────────────────────────────────────────────────
@@ -82,9 +91,9 @@ public class TitleRegistryServlet extends HttpServlet {
                 handleGetTitles(req, resp, pathInfo);
             }
         } catch (LandTitleException e) {
-            sendError(resp, mapStatusCode(e), e.getErrorCode().name(), e.getMessage());
+            sendError(resp, e.getHttpStatusCode(), e.getErrorCode().name(), e.getMessage());
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Unhandled error in doGet", e);
+            LOGGER.error("Unhandled error in doGet", e);
             sendError(resp, 500, "INTERNAL_ERROR", e.getMessage());
         }
     }
@@ -126,8 +135,8 @@ public class TitleRegistryServlet extends HttpServlet {
         String titleNum = req.getParameter("title");
 
         if (pathInfo != null && pathInfo.equals("/pending")) {
-            // Only supervisors/admins
-            if (!req.isUserInRole("REGISTRY_SUPERVISOR") && !req.isUserInRole("REGISTRY_ADMIN")) {
+            // Check roles using Spring Security
+            if (!hasRole("REGISTRY_SUPERVISOR") && !hasRole("REGISTRY_ADMIN")) {
                 sendError(resp, 403, "FORBIDDEN", "Insufficient role to view pending transfers");
                 return;
             }
@@ -159,9 +168,9 @@ public class TitleRegistryServlet extends HttpServlet {
                 handlePostTitle(req, resp);
             }
         } catch (LandTitleException e) {
-            sendError(resp, mapStatusCode(e), e.getErrorCode().name(), e.getMessage());
+            sendError(resp, e.getHttpStatusCode(), e.getErrorCode().name(), e.getMessage());
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Unhandled error in doPost", e);
+            LOGGER.error("Unhandled error in doPost", e);
             sendError(resp, 500, "INTERNAL_ERROR", e.getMessage());
         }
     }
@@ -187,16 +196,14 @@ public class TitleRegistryServlet extends HttpServlet {
 
         if (pathInfo != null && pathInfo.matches("/\\d+/approve")) {
             Long transferId = Long.parseLong(pathInfo.split("/")[1]);
-            String approver = req.getUserPrincipal() != null
-                    ? req.getUserPrincipal().getName() : "SYSTEM";
+            String approver = getCurrentUsername();
             registryBean.approveTransfer(transferId, approver);
             sendJson(resp, 200, singleMessage("Transfer " + transferId + " approved"));
 
         } else if (pathInfo != null && pathInfo.matches("/\\d+/reject")) {
             Long transferId = Long.parseLong(pathInfo.split("/")[1]);
             String reason = req.getParameter("reason");
-            String rejector = req.getUserPrincipal() != null
-                    ? req.getUserPrincipal().getName() : "SYSTEM";
+            String rejector = getCurrentUsername();
             registryBean.rejectTransfer(transferId, rejector, reason);
             sendJson(resp, 200, singleMessage("Transfer " + transferId + " rejected"));
 
@@ -229,9 +236,9 @@ public class TitleRegistryServlet extends HttpServlet {
             sendJson(resp, 200, singleMessage("Title updated successfully"));
 
         } catch (LandTitleException e) {
-            sendError(resp, mapStatusCode(e), e.getErrorCode().name(), e.getMessage());
+            sendError(resp, e.getHttpStatusCode(), e.getErrorCode().name(), e.getMessage());
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Unhandled error in doPut", e);
+            LOGGER.error("Unhandled error in doPut", e);
             sendError(resp, 500, "INTERNAL_ERROR", e.getMessage());
         }
     }
@@ -251,26 +258,48 @@ public class TitleRegistryServlet extends HttpServlet {
         Map<String, String> err = new HashMap<>();
         err.put("errorCode", code);
         err.put("message", message);
+        err.put("timestamp", java.time.Instant.now().toString());
         sendJson(resp, status, err);
     }
 
     private Map<String, String> singleMessage(String msg) {
         Map<String, String> m = new HashMap<>();
         m.put("message", msg);
+        m.put("timestamp", java.time.Instant.now().toString());
         return m;
     }
 
-    private int mapStatusCode(LandTitleException e) {
-        switch (e.getErrorCode()) {
-            case TITLE_NOT_FOUND:
-            case TRANSFER_NOT_FOUND:    return 404;
-            case DUPLICATE_PARCEL:
-            case DUPLICATE_TITLE:       return 409;
-            case VALIDATION_ERROR:      return 400;
-            case UNAUTHORIZED:          return 403;
-            case TRANSFER_ALREADY_PROCESSED:
-            case INVALID_TRANSFER:      return 422;
-            default:                    return 500;
+    /**
+     * Get current authenticated username from Spring Security context.
+     * Replaces HttpServletRequest.getUserPrincipal().
+     */
+    private String getCurrentUsername() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to get authenticated user from SecurityContext", e);
         }
+        return "SYSTEM"; // Fallback
+    }
+
+    /**
+     * Check if current user has a specific role using Spring Security.
+     * Replaces HttpServletRequest.isUserInRole().
+     */
+    private boolean hasRole(String role) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null) {
+                return authentication.getAuthorities().stream()
+                    .anyMatch(auth -> auth.getAuthority().equals("ROLE_" + role) || 
+                                     auth.getAuthority().equals(role));
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to check role from SecurityContext", e);
+        }
+        return false;
     }
 }

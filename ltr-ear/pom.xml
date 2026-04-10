@@ -6,55 +6,248 @@
 
     <modelVersion>4.0.0</modelVersion>
 
-    <parent>
-        <groupId>com.trianz.ltr</groupId>
-        <artifactId>land-title-registry</artifactId>
-        <version>1.0.0</version>
-    </parent>
+    <groupId>com.trianz.ltr</groupId>
+    <artifactId>ltr-cloud-native</artifactId>
+    <version>2.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+    <name>Land Title Registry - Cloud Native</name>
+    <description>
+        Cloud-native Land Title Registry System built for AWS deployment.
+        Migrated from IBM WebSphere to cloud-native architecture using
+        Spring Boot, HikariCP, and standard Java APIs.
+    </description>
 
-    <artifactId>ltr-ear</artifactId>
-    <packaging>ear</packaging>
-    <n>Land Title Registry - EAR</n>
+    <properties>
+        <java.version>11</java.version>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Spring Boot version -->
+        <spring-boot.version>2.7.18</spring-boot.version>
+        
+        <!-- Dependency versions -->
+        <hikaricp.version>5.0.1</hikaricp.version>
+        <postgresql.version>42.7.1</postgresql.version>
+        <jackson.version>2.15.3</jackson.version>
+        <slf4j.version>2.0.9</slf4j.version>
+        <logback.version>1.4.14</logback.version>
+        <junit.version>5.10.1</junit.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>${spring-boot.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
+
+        <!-- ============================================================
+             Spring Boot Starter Web (Embedded Tomcat)
+             Cloud-ready: Executable JAR with embedded server
+             ============================================================ -->
         <dependency>
-            <groupId>com.trianz.ltr</groupId>
-            <artifactId>ltr-ejb</artifactId>
-            <version>${project.version}</version>
-            <type>ejb</type>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- ============================================================
+             Spring Boot Starter Data JPA (Optional - for JPA support)
+             ============================================================ -->
         <dependency>
-            <groupId>com.trianz.ltr</groupId>
-            <artifactId>ltr-web</artifactId>
-            <version>${project.version}</version>
-            <type>war</type>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
         </dependency>
+
+        <!-- ============================================================
+             Spring Boot Actuator (Health checks, metrics)
+             Cloud-ready: AWS ELB/ALB health checks, CloudWatch metrics
+             ============================================================ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- ============================================================
+             HikariCP Connection Pool
+             Cloud-ready: High-performance connection pooling for AWS RDS
+             ============================================================ -->
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <version>${hikaricp.version}</version>
+        </dependency>
+
+        <!-- ============================================================
+             PostgreSQL JDBC Driver (AWS RDS PostgreSQL)
+             Replace with MySQL/MariaDB driver if using AWS RDS MySQL
+             ============================================================ -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${postgresql.version}</version>
+        </dependency>
+
+        <!-- ============================================================
+             Jackson for JSON (REST API responses)
+             ============================================================ -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- ============================================================
+             SLF4J + Logback (Structured logging for CloudWatch)
+             ============================================================ -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+
+        <!-- ============================================================
+             AWS SDK for Java v2 (Secrets Manager, S3, etc.)
+             Cloud-ready: AWS Secrets Manager for database credentials
+             ============================================================ -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>secretsmanager</artifactId>
+            <version>2.21.42</version>
+        </dependency>
+
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+            <version>2.21.42</version>
+        </dependency>
+
+        <!-- ============================================================
+             Jakarta EE APIs (Servlet, JTA)
+             Cloud-ready: Standard APIs, no vendor lock-in
+             ============================================================ -->
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>5.0.0</version>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+
+        <!-- ============================================================
+             Apache Commons Lang (Utilities)
+             ============================================================ -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.14.0</version>
+        </dependency>
+
+        <!-- ============================================================
+             Testing Dependencies
+             ============================================================ -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <version>5.7.0</version>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
+        <finalName>ltr-cloud-native</finalName>
         <plugins>
+
+            <!-- ============================================================
+                 Spring Boot Maven Plugin
+                 Cloud-ready: Creates executable JAR with embedded Tomcat
+                 ============================================================ -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-ear-plugin</artifactId>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring-boot.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
                 <configuration>
-                    <earName>land-title-registry</earName>
-                    <applicationXml>${project.basedir}/src/main/application/META-INF/application.xml</applicationXml>
-                    <defaultLibBundleDir>lib</defaultLibBundleDir>
-                    <modules>
-                        <ejbModule>
-                            <groupId>com.trianz.ltr</groupId>
-                            <artifactId>ltr-ejb</artifactId>
-                            <bundleFileName>ltr-ejb.jar</bundleFileName>
-                        </ejbModule>
-                        <webModule>
-                            <groupId>com.trianz.ltr</groupId>
-                            <artifactId>ltr-web</artifactId>
-                            <bundleFileName>ltr-web.war</bundleFileName>
-                            <contextRoot>/ltr</contextRoot>
-                        </webModule>
-                    </modules>
+                    <mainClass>com.trianz.ltr.CloudNativeApplication</mainClass>
                 </configuration>
             </plugin>
+
+            <!-- ============================================================
+                 Maven Compiler Plugin
+                 ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                </configuration>
+            </plugin>
+
+            <!-- ============================================================
+                 Maven Surefire Plugin (Unit Tests)
+                 ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.2</version>
+            </plugin>
+
+            <!-- ============================================================
+                 Maven Failsafe Plugin (Integration Tests)
+                 ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.2.2</version>
+            </plugin>
+
         </plugins>
     </build>
 

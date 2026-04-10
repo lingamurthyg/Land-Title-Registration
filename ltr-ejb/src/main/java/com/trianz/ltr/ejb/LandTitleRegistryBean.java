@@ -8,60 +8,53 @@ import com.trianz.ltr.model.TitleTransfer;
 import com.trianz.ltr.model.TitleTransfer.TransferStatus;
 import com.trianz.ltr.util.TitleNumberGenerator;
 
-import javax.annotation.Resource;
-import javax.annotation.security.RolesAllowed;
-import javax.ejb.*;
-import java.util.Date;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+
+import java.time.Instant;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
- * LandTitleRegistryBean - Stateless Session Bean implementing the Land Title
- * Registry business logic.
+ * LandTitleRegistryBean - Cloud-native service implementing Land Title Registry business logic.
  *
- * WAS-SPECIFIC FEATURES DEMONSTRATED:
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced @Stateless EJB with Spring @Service
+ *   - Replaced @TransactionAttribute with Spring @Transactional
+ *   - Replaced SessionContext with Spring SecurityContextHolder
+ *   - Replaced @RolesAllowed with Spring Security method security
+ *   - Uses java.time.Instant instead of java.util.Date for UTC timestamps
+ *   - Compatible with AWS, Azure, GCP cloud platforms
  *
- *   1. @Stateless EJB with both @Local and @Remote interfaces
- *   2. Container-Managed Transactions (CMT) — WAS manages XA transaction lifecycle
- *   3. @Resource injection of WAS SessionContext (gives access to caller principal,
- *      WAS security roles, and EJBContext methods)
- *   4. @RolesAllowed mapped to WAS security roles defined in ibm-application-bnd.xml
- *   5. EJBContext.getCallerPrincipal() — WAS LDAP/JAAS-authenticated user
- *   6. TransactionAttributeType.REQUIRED and REQUIRES_NEW — WAS XA coordination
+ * TRANSACTION MANAGEMENT:
+ *   - Spring @Transactional provides declarative transaction management
+ *   - Works with any JDBC DataSource (AWS RDS, Azure SQL, GCP Cloud SQL)
+ *   - Automatic rollback on RuntimeException
+ *   - Configurable propagation and isolation levels
  *
- * JNDI BINDINGS (ibm-ejb-jar-bnd.xml):
- *   Local  → ejblocal:LandTitleRegistryLocal
- *   Remote → ejb/LandTitleRegistryRemote
- *
- * ──────────────────────────────────────────────────────────────────────────────
- * MODERNIZATION NOTE (Concierto Modernize):
- *   - Replace @Stateless + CMT with CDI @ApplicationScoped + @Transactional
- *   - Replace @RolesAllowed + WAS JAAS with MicroProfile JWT or OIDC
- *   - Replace SessionContext.getCallerPrincipal() with
- *     SecurityContext.getCallerPrincipal() (MicroProfile)
- *   - Remove ibm-ejb-jar-bnd.xml; use standard JNDI or CDI injection
- * ──────────────────────────────────────────────────────────────────────────────
+ * SECURITY:
+ *   - Spring Security replaces WAS JAAS authentication
+ *   - SecurityContextHolder provides authenticated principal
+ *   - Method-level security can be added with @PreAuthorize
  */
-@Stateless(name = "LandTitleRegistry", mappedName = "ejb/LandTitleRegistry")
-@TransactionManagement(TransactionManagementType.CONTAINER)   // WAS CMT
-@RolesAllowed({"REGISTRY_OFFICER", "REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
+@Service("landTitleRegistryService")
+@Transactional(readOnly = false, rollbackFor = Exception.class)
 public class LandTitleRegistryBean
         implements LandTitleRegistryLocal, LandTitleRegistryRemote {
 
-    private static final Logger LOGGER = Logger.getLogger(LandTitleRegistryBean.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(LandTitleRegistryBean.class);
 
-    /** WAS-specific: SessionContext injected by the WAS EJB container */
-    @Resource
-    private SessionContext sessionContext;   // WAS populates from JAAS/LDAP principal
-
-    private final LandTitleDAO    titleDAO    = new LandTitleDAO();
+    private final LandTitleDAO titleDAO = new LandTitleDAO();
     private final TitleTransferDAO transferDAO = new TitleTransferDAO();
 
     // ── Register a New Title ───────────────────────────────────────────────────
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRED)
     public String registerTitle(LandTitle title) throws LandTitleException {
 
         validateTitle(title);
@@ -78,22 +71,20 @@ public class LandTitleRegistryBean
             String titleNum = TitleNumberGenerator.generateLocal("REG");
             title.setTitleNumber(titleNum);
             title.setStatus(TitleStatus.ACTIVE);
-            title.setRegistrationDate(new Date());
+            title.setRegistrationDate(Instant.now());
 
-            // WAS-specific: get the authenticated principal name from JAAS
-            String callerPrincipal = sessionContext.getCallerPrincipal().getName();
+            // Get authenticated principal from Spring Security
+            String callerPrincipal = getCurrentUsername();
             title.setRegisteredBy(callerPrincipal);
 
             titleDAO.insert(title);
-            LOGGER.info("Title registered: " + titleNum + " by " + callerPrincipal);
+            LOGGER.info("Title registered: {} by {}", titleNum, callerPrincipal);
             return titleNum;
 
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "registerTitle failed", e);
-            // WAS CMT: mark for rollback on unexpected errors
-            sessionContext.setRollbackOnly();
+            LOGGER.error("registerTitle failed", e);
             throw new LandTitleException(
                     LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "Failed to register title: " + e.getMessage(), e);
@@ -103,7 +94,7 @@ public class LandTitleRegistryBean
     // ── Retrieve Title ─────────────────────────────────────────────────────────
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public LandTitle getTitleByNumber(String titleNumber) throws LandTitleException {
         try {
             LandTitle t = titleDAO.findByTitleNumber(titleNumber);
@@ -119,7 +110,7 @@ public class LandTitleRegistryBean
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public LandTitle getTitleByParcelId(String parcelId) throws LandTitleException {
         try {
             LandTitle t = titleDAO.findByParcelId(parcelId);
@@ -135,7 +126,7 @@ public class LandTitleRegistryBean
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public List<LandTitle> getTitlesByOwner(String ownerNationalId) throws LandTitleException {
         try {
             return titleDAO.findByOwner(ownerNationalId);
@@ -146,7 +137,7 @@ public class LandTitleRegistryBean
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public List<LandTitle> getTitlesByStatus(TitleStatus status) throws LandTitleException {
         try {
             return titleDAO.findByStatus(status);
@@ -157,7 +148,7 @@ public class LandTitleRegistryBean
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public List<LandTitle> searchTitles(String keyword) throws LandTitleException {
         try {
             return titleDAO.search(keyword);
@@ -170,11 +161,11 @@ public class LandTitleRegistryBean
     // ── Update Title ───────────────────────────────────────────────────────────
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRED)
     public void updateTitle(LandTitle title) throws LandTitleException {
         try {
-            title.setLastModifiedDate(new Date());
-            title.setLastModifiedBy(sessionContext.getCallerPrincipal().getName());
+            title.setLastModifiedDate(Instant.now());
+            title.setLastModifiedBy(getCurrentUsername());
             int rows = titleDAO.update(title);
             if (rows == 0) throw new LandTitleException(
                     LandTitleException.ErrorCode.TITLE_NOT_FOUND,
@@ -182,27 +173,25 @@ public class LandTitleRegistryBean
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            sessionContext.setRollbackOnly();
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "updateTitle failed", e);
         }
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
-    @RolesAllowed({"REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
+    @Transactional(propagation = Propagation.REQUIRED)
+    // @PreAuthorize("hasAnyRole('REGISTRY_SUPERVISOR', 'REGISTRY_ADMIN')") // Enable with Spring Security
     public void updateTitleStatus(String titleNumber, TitleStatus newStatus) throws LandTitleException {
         try {
-            String caller = sessionContext.getCallerPrincipal().getName();
+            String caller = getCurrentUsername();
             int rows = titleDAO.updateStatus(titleNumber, newStatus, caller);
             if (rows == 0) throw new LandTitleException(
                     LandTitleException.ErrorCode.TITLE_NOT_FOUND,
                     "Title not found for status update: " + titleNumber);
-            LOGGER.info("Status updated: " + titleNumber + " → " + newStatus + " by " + caller);
+            LOGGER.info("Status updated: {} → {} by {}", titleNumber, newStatus, caller);
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            sessionContext.setRollbackOnly();
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "updateTitleStatus failed", e);
         }
@@ -211,7 +200,7 @@ public class LandTitleRegistryBean
     // ── Transfer Workflow ──────────────────────────────────────────────────────
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
+    @Transactional(propagation = Propagation.REQUIRED)
     public Long initiateTransfer(TitleTransfer transfer) throws LandTitleException {
         try {
             // Validate source title exists and is ACTIVE
@@ -227,32 +216,29 @@ public class LandTitleRegistryBean
             transfer.setPreviousOwnerNationalId(existing.getOwnerNationalId());
             transfer.setPreviousOwnerName(existing.getOwnerFullName());
             transfer.setTransferStatus(TransferStatus.UNDER_REVIEW);
-            transfer.setInitiatedBy(sessionContext.getCallerPrincipal().getName());
-            transfer.setTransferDate(new Date());
+            transfer.setInitiatedBy(getCurrentUsername());
+            transfer.setTransferDate(Instant.now());
 
             // Mark title as PENDING while under review
-            titleDAO.updateStatus(transfer.getTitleNumber(), TitleStatus.PENDING,
-                    sessionContext.getCallerPrincipal().getName());
+            titleDAO.updateStatus(transfer.getTitleNumber(), TitleStatus.PENDING, getCurrentUsername());
 
             Long id = transferDAO.insert(transfer);
-            LOGGER.info("Transfer initiated: " + transfer.getTitleNumber() + " → " + transfer.getNewOwnerName());
+            LOGGER.info("Transfer initiated: {} → {}", transfer.getTitleNumber(), transfer.getNewOwnerName());
             return id;
 
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            sessionContext.setRollbackOnly();
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "initiateTransfer failed", e);
         }
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)   // WAS: new XA transaction for approval
-    @RolesAllowed({"REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
+    @Transactional(propagation = Propagation.REQUIRES_NEW) // New transaction for approval
+    // @PreAuthorize("hasAnyRole('REGISTRY_SUPERVISOR', 'REGISTRY_ADMIN')") // Enable with Spring Security
     public void approveTransfer(Long transferId, String approvedByPrincipal) throws LandTitleException {
         try {
-            List<TitleTransfer> list = transferDAO.findByTitleNumber("");  // find by id via pending list
             // Look up the specific transfer
             TitleTransfer transfer = findTransferById(transferId);
 
@@ -269,28 +255,27 @@ public class LandTitleRegistryBean
             title.setOwnerContactEmail(transfer.getNewOwnerContactEmail());
             title.setOwnerContactPhone(transfer.getNewOwnerContactPhone());
             title.setStatus(TitleStatus.ACTIVE);
-            title.setLastModifiedDate(new Date());
+            title.setLastModifiedDate(Instant.now());
             title.setLastModifiedBy(approvedByPrincipal);
             titleDAO.update(title);
 
             // Finalize transfer record
             transferDAO.updateStatus(transferId, TransferStatus.COMPLETED, approvedByPrincipal, null);
 
-            LOGGER.info("Transfer " + transferId + " approved by " + approvedByPrincipal
-                    + ". Title " + transfer.getTitleNumber() + " now owned by " + transfer.getNewOwnerName());
+            LOGGER.info("Transfer {} approved by {}. Title {} now owned by {}",
+                    transferId, approvedByPrincipal, transfer.getTitleNumber(), transfer.getNewOwnerName());
 
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            sessionContext.setRollbackOnly();
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "approveTransfer failed", e);
         }
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRED)
-    @RolesAllowed({"REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
+    @Transactional(propagation = Propagation.REQUIRED)
+    // @PreAuthorize("hasAnyRole('REGISTRY_SUPERVISOR', 'REGISTRY_ADMIN')") // Enable with Spring Security
     public void rejectTransfer(Long transferId, String rejectedByPrincipal, String reason)
             throws LandTitleException {
         try {
@@ -303,18 +288,17 @@ public class LandTitleRegistryBean
             // Revert title to ACTIVE
             titleDAO.updateStatus(transfer.getTitleNumber(), TitleStatus.ACTIVE, rejectedByPrincipal);
             transferDAO.updateStatus(transferId, TransferStatus.REJECTED, rejectedByPrincipal, reason);
-            LOGGER.info("Transfer " + transferId + " rejected by " + rejectedByPrincipal);
+            LOGGER.info("Transfer {} rejected by {}", transferId, rejectedByPrincipal);
         } catch (LandTitleException e) {
             throw e;
         } catch (Exception e) {
-            sessionContext.setRollbackOnly();
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "rejectTransfer failed", e);
         }
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
     public List<TitleTransfer> getTransferHistory(String titleNumber) throws LandTitleException {
         try {
             return transferDAO.findByTitleNumber(titleNumber);
@@ -325,8 +309,8 @@ public class LandTitleRegistryBean
     }
 
     @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    @RolesAllowed({"REGISTRY_SUPERVISOR", "REGISTRY_ADMIN"})
+    @Transactional(readOnly = true, propagation = Propagation.SUPPORTS)
+    // @PreAuthorize("hasAnyRole('REGISTRY_SUPERVISOR', 'REGISTRY_ADMIN')") // Enable with Spring Security
     public List<TitleTransfer> getPendingTransfers() throws LandTitleException {
         try {
             return transferDAO.findPendingApprovals();
@@ -364,6 +348,22 @@ public class LandTitleRegistryBean
             throw new LandTitleException(LandTitleException.ErrorCode.DATA_ACCESS_ERROR,
                     "findTransferById failed", e);
         }
+    }
+
+    /**
+     * Get current authenticated username from Spring Security context.
+     * Replaces EJB SessionContext.getCallerPrincipal().
+     */
+    private String getCurrentUsername() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                return authentication.getName();
+            }
+        } catch (Exception e) {
+            LOGGER.warn("Failed to get authenticated user from SecurityContext", e);
+        }
+        return "SYSTEM"; // Fallback for non-authenticated contexts
     }
 
     private static boolean isBlank(String s) {

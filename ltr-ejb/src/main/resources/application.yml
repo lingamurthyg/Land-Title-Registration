@@ -1,0 +1,205 @@
+# Cloud-Native Land Title Registry Application Configuration
+# Supports AWS, Azure, and GCP deployments
+
+spring:
+  application:
+    name: land-title-registry
+  
+  # DataSource Configuration (HikariCP)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:landtitle}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    
+    # HikariCP Connection Pool Settings
+    hikari:
+      pool-name: LandTitleRegistryPool
+      maximum-pool-size: ${DB_POOL_MAX_SIZE:20}
+      minimum-idle: ${DB_POOL_MIN_IDLE:5}
+      connection-timeout: ${DB_CONNECTION_TIMEOUT_MS:30000}
+      idle-timeout: ${DB_IDLE_TIMEOUT_MS:600000}
+      max-lifetime: ${DB_MAX_LIFETIME_MS:1800000}
+      connection-test-query: SELECT 1
+      validation-timeout: 5000
+      leak-detection-threshold: 30000
+      
+      # PostgreSQL-specific optimizations
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+        useServerPrepStmts: true
+        reWriteBatchedInserts: true
+  
+  # JPA Configuration
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: false
+        jdbc:
+          batch_size: 20
+          fetch_size: 50
+  
+  # Transaction Management
+  transaction:
+    default-timeout: 30
+    rollback-on-commit-failure: true
+  
+  # Security Configuration
+  security:
+    user:
+      name: ${SECURITY_USER:admin}
+      password: ${SECURITY_PASSWORD:admin}
+      roles: REGISTRY_ADMIN
+  
+  # Jackson JSON Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: UTC
+    date-format: yyyy-MM-dd'T'HH:mm:ss.SSS'Z'
+
+# Server Configuration
+server:
+  port: ${SERVER_PORT:8080}
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  tomcat:
+    threads:
+      max: ${TOMCAT_MAX_THREADS:200}
+      min-spare: ${TOMCAT_MIN_SPARE_THREADS:10}
+    connection-timeout: 20000
+    max-connections: 10000
+    accept-count: 100
+
+# Logging Configuration (Cloud-Native)
+logging:
+  level:
+    root: INFO
+    com.trianz.ltr: DEBUG
+    org.springframework: INFO
+    org.hibernate: WARN
+    com.zaxxer.hikari: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: /var/log/ltr/application.log
+    max-size: 10MB
+    max-history: 30
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+  secrets:
+    db-credentials: ${DB_SECRET_NAME:ltr/db/credentials}
+  cloudwatch:
+    namespace: LandTitleRegistry
+    enabled: ${CLOUDWATCH_METRICS_ENABLED:true}
+
+# Management Endpoints (Actuator)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+  metrics:
+    export:
+      cloudwatch:
+        namespace: LandTitleRegistry
+        enabled: ${CLOUDWATCH_METRICS_ENABLED:true}
+        batch-size: 20
+        step: 1m
+
+# Application-specific Configuration
+ltr:
+  title-number:
+    prefix: LTR
+    region-code: ${REGION_CODE:REG}
+  transfer:
+    approval-timeout-days: 30
+  security:
+    jwt:
+      enabled: false
+      secret: ${JWT_SECRET:changeme}
+      expiration-ms: 86400000
+
+---
+# AWS Profile
+spring:
+  config:
+    activate:
+      on-profile: aws
+  
+aws:
+  region: ${AWS_REGION:us-east-1}
+  
+logging:
+  level:
+    root: INFO
+    com.trianz.ltr: INFO
+
+---
+# Azure Profile
+spring:
+  config:
+    activate:
+      on-profile: azure
+
+azure:
+  region: ${AZURE_REGION:eastus}
+
+---
+# GCP Profile
+spring:
+  config:
+    activate:
+      on-profile: gcp
+
+gcp:
+  project-id: ${GCP_PROJECT_ID:}
+  region: ${GCP_REGION:us-central1}
+
+---
+# Local Development Profile
+spring:
+  config:
+    activate:
+      on-profile: local
+  
+  datasource:
+    url: jdbc:postgresql://localhost:5432/landtitle
+    username: postgres
+    password: postgres
+  
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+
+logging:
+  level:
+    root: DEBUG
+    com.trianz.ltr: DEBUG
+    org.springframework: INFO

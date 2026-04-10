@@ -1,18 +1,27 @@
 package com.trianz.ltr.model;
 
+import com.fasterxml.jackson.annotation.JsonFormat;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.datatype.jsr310.deser.InstantDeserializer;
+import com.fasterxml.jackson.datatype.jsr310.ser.InstantSerializer;
+
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.Instant;
 
 /**
  * LandTitle - Core domain entity representing a registered land parcel.
- *
- * Deployed on IBM WebSphere Application Server 9.x.
- * Serializable for EJB passivation and WAS clustering support.
+ * 
+ * Cloud-native improvements:
+ * - Uses java.time.Instant instead of java.util.Date for timezone safety
+ * - All timestamps stored in UTC for distributed cloud environments
+ * - Jackson annotations for proper JSON serialization
+ * - Serializable for distributed caching (Redis, ElastiCache)
  */
 public class LandTitle implements Serializable {
 
-    private static final long serialVersionUID = 1L;
+    private static final long serialVersionUID = 2L; // Incremented due to field type changes
 
     public enum TitleStatus {
         ACTIVE, PENDING, TRANSFERRED, ENCUMBERED, CANCELLED
@@ -68,11 +77,19 @@ public class LandTitle implements Serializable {
     private BigDecimal marketValue;
     private String currencyCode;       // ISO 4217 e.g. "USD", "KES", "ZAR"
 
-    // ── Audit ──────────────────────────────────────────────────────────────────
+    // ── Audit (Cloud-native: UTC timestamps) ───────────────────────────────────
 
-    private Date registrationDate;
-    private Date lastModifiedDate;
-    private String registeredBy;       // WAS principal name
+    @JsonSerialize(using = InstantSerializer.class)
+    @JsonDeserialize(using = InstantDeserializer.class)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    private Instant registrationDate;
+
+    @JsonSerialize(using = InstantSerializer.class)
+    @JsonDeserialize(using = InstantDeserializer.class)
+    @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", timezone = "UTC")
+    private Instant lastModifiedDate;
+
+    private String registeredBy;       // User principal name
     private String lastModifiedBy;
     private String remarks;
 
@@ -86,7 +103,7 @@ public class LandTitle implements Serializable {
 
     public LandTitle() {
         this.status = TitleStatus.PENDING;
-        this.registrationDate = new Date();
+        this.registrationDate = Instant.now();
         this.currencyCode = "USD";
         this.hasLien = false;
         this.hasMortgage = false;
@@ -164,11 +181,11 @@ public class LandTitle implements Serializable {
     public String getCurrencyCode()                       { return currencyCode; }
     public void   setCurrencyCode(String v)               { this.currencyCode = v; }
 
-    public Date getRegistrationDate()                     { return registrationDate; }
-    public void setRegistrationDate(Date v)               { this.registrationDate = v; }
+    public Instant getRegistrationDate()                  { return registrationDate; }
+    public void setRegistrationDate(Instant v)            { this.registrationDate = v; }
 
-    public Date getLastModifiedDate()                     { return lastModifiedDate; }
-    public void setLastModifiedDate(Date v)               { this.lastModifiedDate = v; }
+    public Instant getLastModifiedDate()                  { return lastModifiedDate; }
+    public void setLastModifiedDate(Instant v)            { this.lastModifiedDate = v; }
 
     public String getRegisteredBy()                       { return registeredBy; }
     public void   setRegisteredBy(String v)               { this.registeredBy = v; }

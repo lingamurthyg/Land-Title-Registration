@@ -1,123 +1,78 @@
 package com.trianz.ltr.util;
 
-import com.ibm.websphere.uow.UOWSynchronizationRegistry;
-import com.ibm.wsspi.uow.UOWAction;
-import com.ibm.wsspi.uow.UOWManager;
-
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-import javax.transaction.UserTransaction;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 /**
- * WASTransactionUtil - IBM WebSphere-specific transaction management helper.
+ * WASTransactionUtil - DEPRECATED - Use CloudTransactionUtil or @Transactional instead.
  *
- * WAS-SPECIFIC APIS USED:
- *   - com.ibm.websphere.uow.UOWSynchronizationRegistry  (WAS proprietary UOW)
- *   - com.ibm.wsspi.uow.UOWManager                     (WAS UOW Manager SPI)
- *   - com.ibm.wsspi.uow.UOWAction                      (Lambda-style UOW work unit)
+ * This class has been migrated to cloud-native Spring transaction management.
+ * Kept for backward compatibility during migration phase.
  *
- * These APIs allow precise transaction boundary control and UOW-scoped work
- * units that span multiple EJB calls — a WAS-proprietary pattern widely used
- * in government/enterprise registry applications.
+ * MIGRATION PATH:
+ *   1. Replace direct usage with @Transactional annotation on service methods
+ *   2. For programmatic transactions, use CloudTransactionUtil
+ *   3. Remove IBM WebSphere dependencies (com.ibm.websphere.uow.*)
  *
- * ──────────────────────────────────────────────────────────────────────────────
- * MODERNIZATION NOTE (Concierto Modernize – M-Path awareness):
- *   Replace UOWManager with standard JTA:
- *     @Resource UserTransaction ut;
- *   or use CDI @Transactional on service methods in Open Liberty.
- * ──────────────────────────────────────────────────────────────────────────────
+ * CLOUD-NATIVE REPLACEMENT:
+ *   - Use Spring's @Transactional annotation (declarative)
+ *   - Use CloudTransactionUtil for programmatic transactions
+ *   - Works with AWS RDS, Azure SQL, GCP Cloud SQL
  */
+@Deprecated
 public class WASTransactionUtil {
 
-    private static final Logger LOGGER = Logger.getLogger(WASTransactionUtil.class.getName());
+    private static final Logger LOGGER = LoggerFactory.getLogger(WASTransactionUtil.class);
 
-    /** WAS JNDI name for the UOW Manager */
-    private static final String UOW_MANAGER_JNDI = "java:comp/websphere/UOWManager";
-
-    /** WAS JNDI name for UserTransaction */
-    private static final String USER_TX_JNDI = "java:comp/UserTransaction";
-
-    private WASTransactionUtil() { /* utility */ }
+    private WASTransactionUtil() { /* utility class */ }
 
     /**
-     * Execute a unit of work using the WAS UOWManager.
-     * Provides XA-capable, cluster-aware transaction boundaries.
-     *
-     * @param action  the transactional work to perform
-     * @param requiresNew  if true, always starts a new transaction (REQUIRES_NEW semantics)
+     * @deprecated Use CloudTransactionUtil.executeInTransaction() or @Transactional annotation
      */
-    public static void executeInTransaction(UOWAction action, boolean requiresNew)
-            throws Exception {
-
-        UOWManager uowManager = lookupUOWManager();
-
-        int uowType = requiresNew
-                ? UOWManager.UOW_TYPE_GLOBAL_TRANSACTION
-                : UOWManager.UOW_TYPE_GLOBAL_TRANSACTION;
-
-        LOGGER.fine("Executing UOW action. RequiresNew=" + requiresNew);
-        uowManager.runUnderUOW(uowType, requiresNew, action);
+    @Deprecated
+    public static void executeInTransaction(Object action, boolean requiresNew) throws Exception {
+        LOGGER.warn("WASTransactionUtil is deprecated. Migrate to @Transactional or CloudTransactionUtil");
+        throw new UnsupportedOperationException(
+            "WASTransactionUtil is deprecated. Use @Transactional annotation or CloudTransactionUtil");
     }
 
     /**
-     * Look up WAS UOWManager from JNDI.
-     * This is a WAS-proprietary extension – not available in standard Java EE.
+     * @deprecated No longer needed in cloud-native applications
      */
-    public static UOWManager lookupUOWManager() throws NamingException {
-        InitialContext ctx = new InitialContext();
-        try {
-            return (UOWManager) ctx.lookup(UOW_MANAGER_JNDI);
-        } finally {
-            ctx.close();
-        }
+    @Deprecated
+    public static Object lookupUOWManager() throws Exception {
+        throw new UnsupportedOperationException(
+            "IBM WebSphere UOWManager not available in cloud environments. Use Spring @Transactional");
     }
 
     /**
-     * Obtain a standard JTA UserTransaction from WAS JNDI.
-     * Usable from servlets and non-EJB components.
+     * @deprecated Use Spring's @Transactional annotation instead
      */
-    public static UserTransaction getUserTransaction() throws NamingException {
-        InitialContext ctx = new InitialContext();
-        try {
-            return (UserTransaction) ctx.lookup(USER_TX_JNDI);
-        } finally {
-            ctx.close();
-        }
+    @Deprecated
+    public static Object getUserTransaction() throws Exception {
+        throw new UnsupportedOperationException(
+            "JNDI UserTransaction lookup not supported. Use Spring @Transactional annotation");
     }
 
     /**
-     * Helper: begin a UserTransaction safely (for servlet/non-EJB use).
+     * @deprecated Use Spring's @Transactional annotation instead
      */
-    public static UserTransaction beginTransaction() {
-        try {
-            UserTransaction ut = getUserTransaction();
-            ut.begin();
-            return ut;
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to begin UserTransaction", e);
-            throw new RuntimeException("Transaction begin failed", e);
-        }
+    @Deprecated
+    public static Object beginTransaction() {
+        throw new UnsupportedOperationException(
+            "Manual transaction management deprecated. Use Spring @Transactional annotation");
     }
 
     /**
-     * Commit or roll back based on success flag; always nulls the transaction.
+     * @deprecated Use Spring's @Transactional annotation instead
      */
-    public static void endTransaction(UserTransaction ut, boolean commit) {
-        if (ut == null) return;
-        try {
-            if (commit) {
-                ut.commit();
-                LOGGER.fine("Transaction committed.");
-            } else {
-                ut.rollback();
-                LOGGER.warning("Transaction rolled back.");
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to end transaction", e);
-            try { ut.rollback(); } catch (Exception ignored) { /* best effort */ }
-            throw new RuntimeException("Transaction end failed", e);
-        }
+    @Deprecated
+    public static void endTransaction(Object ut, boolean commit) {
+        throw new UnsupportedOperationException(
+            "Manual transaction management deprecated. Use Spring @Transactional annotation");
     }
 }
