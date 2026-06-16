@@ -8,7 +8,10 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.EJB;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.*;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -26,10 +29,12 @@ import java.util.logging.Logger;
 /**
  * TitleRegistryServlet - Front-controller servlet for the Land Title Registry.
  *
- * WAS-SPECIFIC FEATURES:
- *   - @EJB injection resolved by WAS EJB container from ibm-ejb-jar-bnd.xml bindings
- *   - HttpServletRequest.getUserPrincipal() returns WAS JAAS-authenticated user
- *   - HttpServletRequest.isUserInRole() checks WAS security roles
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced @EJB injection with Spring @Autowired dependency injection
+ *   - Compatible with Spring Boot microservices architecture
+ *   - Deployable to AWS ECS, EKS, or Fargate without EJB container
+ *   - Uses Spring Security for authentication (replaces WAS JAAS)
+ *   - Session management via Amazon ElastiCache (Redis)
  *
  * URL patterns:
  *   GET  /api/titles/{titleNumber}         → getTitleByNumber
@@ -45,7 +50,8 @@ import java.util.logging.Logger;
  *   GET  /api/transfers?title={titleNum}   → getTransferHistory
  *
  * MODERNIZATION NOTE:
- *   Replace this servlet with JAX-RS @Path resources on Open Liberty.
+ *   For full cloud-native architecture, migrate to Spring MVC @RestController
+ *   with JAX-RS @Path resources or Spring Web @RequestMapping.
  */
 @WebServlet(name = "TitleRegistryServlet", urlPatterns = {"/api/titles/*", "/api/transfers/*"})
 public class TitleRegistryServlet extends HttpServlet {
@@ -53,8 +59,11 @@ public class TitleRegistryServlet extends HttpServlet {
     private static final Logger LOGGER = Logger.getLogger(TitleRegistryServlet.class.getName());
     private static final long serialVersionUID = 1L;
 
-    /** WAS EJB container injects the Local EJB from the same EAR */
-    @EJB(beanName = "LandTitleRegistry")
+    /** 
+     * Spring-managed service bean replaces EJB Local interface.
+     * Injected via Spring's dependency injection framework.
+     */
+    @Autowired
     private LandTitleRegistryLocal registryBean;
 
     private ObjectMapper mapper;
@@ -126,7 +135,7 @@ public class TitleRegistryServlet extends HttpServlet {
         String titleNum = req.getParameter("title");
 
         if (pathInfo != null && pathInfo.equals("/pending")) {
-            // Only supervisors/admins
+            // Only supervisors/admins - Spring Security role check
             if (!req.isUserInRole("REGISTRY_SUPERVISOR") && !req.isUserInRole("REGISTRY_ADMIN")) {
                 sendError(resp, 403, "FORBIDDEN", "Insufficient role to view pending transfers");
                 return;

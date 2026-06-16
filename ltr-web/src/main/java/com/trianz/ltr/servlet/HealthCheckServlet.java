@@ -10,20 +10,30 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 /**
- * HealthCheckServlet - Application health endpoint for WAS monitoring.
+ * HealthCheckServlet - Application health endpoint for cloud monitoring.
  *
- * WAS-SPECIFIC: checks WAS JNDI DataSource availability.
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced java.util.Date with java.time.Instant for UTC timestamps
+ *   - Standardized on UTC timezone for all time operations
+ *   - Compatible with AWS CloudWatch, ECS health checks, and ALB target health
+ *   - Checks database connectivity via HikariCP connection pool
+ *
  * URL: GET /health
  *
  * MODERNIZATION NOTE:
- *   Replace with MicroProfile Health @Readiness / @Liveness on Open Liberty.
+ *   For full cloud-native architecture, migrate to Spring Boot Actuator
+ *   with /actuator/health endpoint or MicroProfile Health @Readiness/@Liveness.
  */
 @WebServlet(name = "HealthCheckServlet", urlPatterns = {"/health"})
 public class HealthCheckServlet extends HttpServlet {
+
+    private static final DateTimeFormatter ISO_FORMATTER = 
+            DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(ZoneOffset.UTC);
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws IOException {
@@ -53,7 +63,9 @@ public class HealthCheckServlet extends HttpServlet {
         int status = (dbOk) ? 200 : 503;
         resp.setStatus(status);
 
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
+        // Use java.time.Instant for UTC timestamp - cloud-native time handling
+        String timestamp = ISO_FORMATTER.format(Instant.now());
+        
         PrintWriter out = resp.getWriter();
         out.printf("{%n" +
                 "  \"status\": \"%s\",%n" +

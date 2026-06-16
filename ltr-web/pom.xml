@@ -13,44 +13,109 @@
     </parent>
 
     <artifactId>ltr-web</artifactId>
-    <packaging>war</packaging>
-    <n>Land Title Registry - Web Module</n>
+    <packaging>jar</packaging>
+    <name>Land Title Registry - Web Module (Spring Boot Application)</name>
+    <description>
+        Web layer migrated from WAR packaging to executable JAR with embedded Tomcat.
+        
+        CLOUD-NATIVE FEATURES:
+          - Executable JAR with embedded Tomcat (replaces external WAS)
+          - Spring Boot Actuator for health checks (AWS ALB/ECS)
+          - Spring Session with Redis for distributed sessions (Amazon ElastiCache)
+          - Containerization-ready for AWS ECS, EKS, or Fargate
+          - Smaller container images compared to WAR + application server
+    </description>
 
     <dependencies>
-        <!-- EJB client jar from sibling module -->
+        <!-- EJB service layer (now Spring services) -->
         <dependency>
             <groupId>com.trianz.ltr</groupId>
             <artifactId>ltr-ejb</artifactId>
             <version>${project.version}</version>
-            <classifier>client</classifier>
         </dependency>
 
+        <!-- Spring Boot Starter Web - replaces WebSphere application server -->
         <dependency>
-            <groupId>com.ibm.websphere.appserver</groupId>
-            <artifactId>was_public</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- Spring Boot Starter for embedded Tomcat -->
         <dependency>
-            <groupId>javax</groupId>
-            <artifactId>javaee-api</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-tomcat</artifactId>
         </dependency>
+
+        <!-- Spring Session with Redis for distributed session management -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+
+        <!-- Spring Data Redis for Amazon ElastiCache integration -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+
+        <!-- Lettuce Redis client (async, cloud-native) -->
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+        </dependency>
+
+        <!-- Jakarta EE API (replaces javax.javaee-api for cloud compatibility) -->
+        <dependency>
+            <groupId>jakarta.platform</groupId>
+            <artifactId>jakarta.jakartaee-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <!-- Jackson for JSON processing -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+
+        <!-- SLF4J Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <!-- Spring Boot Actuator for cloud health checks -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Spring Boot Maven Plugin for executable JAR -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <mainClass>com.trianz.ltr.LandTitleWebApplication</mainClass>
+                    <layout>JAR</layout>
+                </configuration>
+            </plugin>
+
+            <!-- Maven Compiler Plugin -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-war-plugin</artifactId>
+                <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <warName>ltr-web</warName>
-                    <failOnMissingWebXml>true</failOnMissingWebXml>
+                    <source>11</source>
+                    <target>11</target>
                 </configuration>
             </plugin>
         </plugins>

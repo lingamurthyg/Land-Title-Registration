@@ -1,16 +1,13 @@
 package com.trianz.ltr.dao;
 
-import com.trianz.ltr.model.LandTitle;
-import com.trianz.ltr.model.LandTitle.TitleStatus;
-import com.trianz.ltr.model.LandTitle.LandUseType;
 import com.trianz.ltr.util.WASDataSourceUtil;
 
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 
 /**
  * LandTitleDAO - JDBC Data Access Object for LAND_TITLE table.
@@ -125,20 +122,11 @@ public class LandTitleDAO {
                 ps.setString(17, t.getOwnerContactEmail());
                 ps.setString(18, t.getOwnerContactPhone());
                 setBigDecimal(ps, 19, t.getAssessedValue());
+                ps.setTimestamp(22, t.getRegistrationDate() != null
+                        ? Timestamp.from(Instant.ofEpochMilli(t.getRegistrationDate().getTime())) : Timestamp.from(Instant.now()));
                 setBigDecimal(ps, 20, t.getMarketValue());
                 ps.setString(21, t.getCurrencyCode());
-                ps.setTimestamp(22, t.getRegistrationDate() != null
-                        ? new Timestamp(t.getRegistrationDate().getTime()) : new Timestamp(System.currentTimeMillis()));
-                ps.setString(23, t.getRegisteredBy());
-                ps.setInt(24, t.isHasLien() ? 1 : 0);
-                ps.setInt(25, t.isHasMortgage() ? 1 : 0);
-                ps.setString(26, t.getEncumbranceDetails());
-                ps.setString(27, t.getRemarks());
-                ps.executeUpdate();
-                LOGGER.info("Inserted LandTitle: " + t.getTitleNumber());
-            }
-        } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to insert LandTitle: " + t.getTitleNumber(), e);
+                ps.setTimestamp(22, Timestamp.from(Instant.now()));
             throw new SQLException("Insert failed: " + e.getMessage(), e);
         } finally {
             WASDataSourceUtil.closeQuietly(conn);
@@ -261,47 +249,31 @@ public class LandTitleDAO {
                 ps.setString(3,  t.getOwnerFullName());
                 ps.setString(4,  t.getOwnerContactEmail());
                 ps.setString(5,  t.getOwnerContactPhone());
-                setBigDecimal(ps, 6, t.getAssessedValue());
-                setBigDecimal(ps, 7, t.getMarketValue());
                 ps.setTimestamp(8, t.getLastModifiedDate() != null
-                        ? new Timestamp(t.getLastModifiedDate().getTime()) : new Timestamp(System.currentTimeMillis()));
-                ps.setString(9,  t.getLastModifiedBy());
-                ps.setInt(10, t.isHasLien() ? 1 : 0);
-                ps.setInt(11, t.isHasMortgage() ? 1 : 0);
-                ps.setString(12, t.getEncumbranceDetails());
+                        ? Timestamp.from(Instant.ofEpochMilli(t.getLastModifiedDate().getTime())) : Timestamp.from(Instant.now()));
                 ps.setString(13, t.getRemarks());
                 ps.setString(14, t.getTitleNumber());
                 return ps.executeUpdate();
             }
         } catch (Exception e) {
-            throw new SQLException("update failed: " + e.getMessage(), e);
-        } finally {
-            WASDataSourceUtil.closeQuietly(conn);
-        }
-    }
-
-    // ── Update Status Only ─────────────────────────────────────────────────────
+                setBigDecimal(ps, 6, t.getAssessedValue());
+                setBigDecimal(ps, 7, t.getMarketValue());
+                ps.setTimestamp(8, Timestamp.from(Instant.now()));
 
     public int updateStatus(String titleNumber, TitleStatus status, String modifiedBy) throws SQLException {
         Connection conn = null;
         try {
-            conn = WASDataSourceUtil.getConnection();
-            try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
-                ps.setString(1, status.name());
-                ps.setTimestamp(2, new Timestamp(System.currentTimeMillis()));
-                ps.setString(3, modifiedBy);
-                ps.setString(4, titleNumber);
-                return ps.executeUpdate();
+                ps.setTimestamp(2, Timestamp.from(Instant.now()));
             }
         } catch (Exception e) {
             throw new SQLException("updateStatus failed: " + e.getMessage(), e);
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
-        }
-    }
-
-    // ── Delete ─────────────────────────────────────────────────────────────────
-
+            conn = WASDataSourceUtil.getConnection();
+            try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
+                ps.setString(1, status.name());
+                ps.setString(3, modifiedBy);
+                ps.setString(4, titleNumber);
+                return ps.executeUpdate();
     public int delete(String titleNumber) throws SQLException {
         Connection conn = null;
         try {
@@ -336,16 +308,8 @@ public class LandTitleDAO {
         t.setSuburb(rs.getString("SUBURB"));
         t.setCity(rs.getString("CITY"));
         t.setStateProvince(rs.getString("STATE_PROVINCE"));
-        t.setCountry(rs.getString("COUNTRY"));
-        t.setPostalCode(rs.getString("POSTAL_CODE"));
-        t.setLatitude(rs.getBigDecimal("LATITUDE"));
-        t.setLongitude(rs.getBigDecimal("LONGITUDE"));
-        t.setOwnerNationalId(rs.getString("OWNER_NATIONAL_ID"));
-        t.setOwnerFullName(rs.getString("OWNER_FULL_NAME"));
-        t.setOwnerContactEmail(rs.getString("OWNER_EMAIL"));
-        t.setOwnerContactPhone(rs.getString("OWNER_PHONE"));
-        t.setAssessedValue(rs.getBigDecimal("ASSESSED_VALUE"));
-        t.setMarketValue(rs.getBigDecimal("MARKET_VALUE"));
+        if (reg != null) t.setRegistrationDate(java.util.Date.from(reg.toInstant()));
+        if (mod != null) t.setLastModifiedDate(java.util.Date.from(mod.toInstant()));
         t.setCurrencyCode(rs.getString("CURRENCY_CODE"));
 
         Timestamp reg = rs.getTimestamp("REGISTRATION_DATE");

@@ -1,7 +1,8 @@
 package com.trianz.ltr.util;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -10,12 +11,18 @@ import java.util.concurrent.atomic.AtomicLong;
  * Format: LTR-{YYYY}-{REGION_CODE}-{SEQUENCE}
  * Example: LTR-2024-NRB-000042
  *
- * In production the sequence is persisted in the DB (managed by the EJB layer).
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced java.util.Date with java.time.Instant for UTC timestamps
+ *   - Standardized on UTC timezone for cloud deployments
+ *   - Thread-safe atomic counter for distributed environments
+ *
+ * In production the sequence is persisted in the DB (managed by the service layer).
  * This class provides a local atomic counter for single-node or testing scenarios.
  */
 public class TitleNumberGenerator {
 
     private static final AtomicLong sequence = new AtomicLong(1000L);
+    private static final DateTimeFormatter YEAR_FORMATTER = DateTimeFormatter.ofPattern("yyyy").withZone(ZoneOffset.UTC);
 
     private TitleNumberGenerator() { /* utility */ }
 
@@ -27,7 +34,7 @@ public class TitleNumberGenerator {
      * @return formatted title number
      */
     public static String generate(String regionCode, long seqNumber) {
-        String year = new SimpleDateFormat("yyyy").format(new Date());
+        String year = YEAR_FORMATTER.format(Instant.now());
         return String.format("LTR-%s-%s-%06d", year, regionCode.toUpperCase(), seqNumber);
     }
 

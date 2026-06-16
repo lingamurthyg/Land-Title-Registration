@@ -1,7 +1,4 @@
 package com.trianz.ltr.dao;
-
-import com.trianz.ltr.model.TitleTransfer;
-import com.trianz.ltr.model.TitleTransfer.TransferStatus;
 import com.trianz.ltr.model.TitleTransfer.TransferType;
 import com.trianz.ltr.util.WASDataSourceUtil;
 
@@ -9,8 +6,7 @@ import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
 
 /**
  * TitleTransferDAO - JDBC DAO for TITLE_TRANSFER_HISTORY table.
@@ -85,21 +81,15 @@ public class TitleTransferDAO {
                 ps.setString(9,  tr.getTransferStatus() != null
                         ? tr.getTransferStatus().name() : TransferStatus.INITIATED.name());
                 setBigDecimal(ps, 10, tr.getTransferPrice());
+                ps.setTimestamp(13, tr.getTransferDate() != null
+                        ? Timestamp.from(Instant.ofEpochMilli(tr.getTransferDate().getTime())) : Timestamp.from(Instant.now()));
+                ps.setString(16, tr.getNotaryNationalId());
                 ps.setString(11, tr.getCurrencyCode());
                 setBigDecimal(ps, 12, tr.getStampDutyPaid());
-                ps.setTimestamp(13, tr.getTransferDate() != null
-                        ? new Timestamp(tr.getTransferDate().getTime()) : new Timestamp(System.currentTimeMillis()));
-                ps.setTimestamp(14, tr.getEffectiveDate() != null
-                        ? new Timestamp(tr.getEffectiveDate().getTime()) : null);
+                ps.setTimestamp(13, Timestamp.from(Instant.now()));
+                ps.setTimestamp(14, tr.getEffectiveDate() != null 
+                        ? Timestamp.from(tr.getEffectiveDate().toInstant()) : null);
                 ps.setString(15, tr.getTransferDeedNumber());
-                ps.setString(16, tr.getNotaryNationalId());
-                ps.setString(17, tr.getNotaryName());
-                ps.setString(18, tr.getInitiatedBy());
-                ps.setString(19, tr.getRemarks());
-                ps.executeUpdate();
-
-                try (ResultSet generatedKeys = ps.getGeneratedKeys()) {
-                    if (generatedKeys.next()) {
                         Long id = generatedKeys.getLong(1);
                         tr.setTransferId(id);
                         return id;
@@ -162,25 +152,20 @@ public class TitleTransferDAO {
         Connection conn = null;
         try {
             conn = WASDataSourceUtil.getConnection();
-            try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
-                ps.setString(1, status.name());
-                ps.setString(2, approvedBy);
-                ps.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
-                ps.setString(4, rejectionReason);
-                ps.setLong(5, transferId);
-                return ps.executeUpdate();
+                ps.setTimestamp(3, Timestamp.from(Instant.now()));
             }
         } catch (Exception e) {
             throw new SQLException("updateStatus(transfer) failed: " + e.getMessage(), e);
         } finally {
             WASDataSourceUtil.closeQuietly(conn);
         }
-    }
-
-    // ── Row Mapper ─────────────────────────────────────────────────────────────
-
-    private TitleTransfer mapRow(ResultSet rs) throws SQLException {
-        TitleTransfer tr = new TitleTransfer();
+            conn = WASDataSourceUtil.getConnection();
+            try (PreparedStatement ps = conn.prepareStatement(SQL_UPDATE_STATUS)) {
+                ps.setString(1, status.name());
+                ps.setString(2, approvedBy);
+                ps.setString(4, rejectionReason);
+                ps.setLong(5, transferId);
+                return ps.executeUpdate();
         tr.setTransferId(rs.getLong("TRANSFER_ID"));
         tr.setTitleNumber(rs.getString("TITLE_NUMBER"));
         tr.setPreviousOwnerNationalId(rs.getString("PREV_OWNER_NATIONAL_ID"));
@@ -205,23 +190,10 @@ public class TitleTransferDAO {
 
         Timestamp ed = rs.getTimestamp("EFFECTIVE_DATE");
         if (ed != null) tr.setEffectiveDate(new java.util.Date(ed.getTime()));
-
-        tr.setTransferDeedNumber(rs.getString("DEED_NUMBER"));
-        tr.setNotaryNationalId(rs.getString("NOTARY_NATIONAL_ID"));
-        tr.setNotaryName(rs.getString("NOTARY_NAME"));
-        tr.setInitiatedBy(rs.getString("INITIATED_BY"));
-        tr.setApprovedBy(rs.getString("APPROVED_BY"));
-
-        Timestamp ad = rs.getTimestamp("APPROVED_DATE");
-        if (ad != null) tr.setApprovedDate(new java.util.Date(ad.getTime()));
-
-        tr.setRejectionReason(rs.getString("REJECTION_REASON"));
-        tr.setRemarks(rs.getString("REMARKS"));
-        return tr;
+        if (td != null) tr.setTransferDate(java.util.Date.from(td.toInstant()));
+        if (ed != null) tr.setEffectiveDate(java.util.Date.from(ed.toInstant()));
     }
 
     private void setBigDecimal(PreparedStatement ps, int idx, BigDecimal val) throws SQLException {
         if (val != null) ps.setBigDecimal(idx, val);
-        else ps.setNull(idx, Types.DECIMAL);
-    }
-}
+        if (ad != null) tr.setApprovedDate(java.util.Date.from(ad.toInstant()));

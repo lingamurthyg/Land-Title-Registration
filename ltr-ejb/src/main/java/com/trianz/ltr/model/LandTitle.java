@@ -1,14 +1,12 @@
-package com.trianz.ltr.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 
-/**
- * LandTitle - Core domain entity representing a registered land parcel.
- *
- * Deployed on IBM WebSphere Application Server 9.x.
- * Serializable for EJB passivation and WAS clustering support.
+ * CLOUD-NATIVE MIGRATION:
+ *   - Removed WAS-specific clustering dependencies
+ *   - Serializable for distributed caching (Amazon ElastiCache/Redis)
+ *   - Compatible with Spring Boot microservices architecture
  */
 public class LandTitle implements Serializable {
 
@@ -83,13 +81,7 @@ public class LandTitle implements Serializable {
     private String encumbranceDetails;
 
     // ── Constructors ───────────────────────────────────────────────────────────
-
-    public LandTitle() {
-        this.status = TitleStatus.PENDING;
-        this.registrationDate = new Date();
-        this.currencyCode = "USD";
-        this.hasLien = false;
-        this.hasMortgage = false;
+        this.registrationDate = Date.from(Instant.now());
     }
 
     public LandTitle(String titleNumber, String parcelId, String ownerNationalId) {

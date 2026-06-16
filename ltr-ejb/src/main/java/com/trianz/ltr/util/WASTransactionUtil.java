@@ -1,123 +1,151 @@
 package com.trianz.ltr.util;
 
-import com.ibm.websphere.uow.UOWSynchronizationRegistry;
-import com.ibm.wsspi.uow.UOWAction;
-import com.ibm.wsspi.uow.UOWManager;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.secretsmanager.SecretsManagerClient;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueRequest;
+import software.amazon.awssdk.services.secretsmanager.model.GetSecretValueResponse;
 
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
-import javax.transaction.UserTransaction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * WASTransactionUtil - IBM WebSphere-specific transaction management helper.
+ * CloudTransactionUtil - Cloud-native transaction management helper.
  *
- * WAS-SPECIFIC APIS USED:
- *   - com.ibm.websphere.uow.UOWSynchronizationRegistry  (WAS proprietary UOW)
- *   - com.ibm.wsspi.uow.UOWManager                     (WAS UOW Manager SPI)
- *   - com.ibm.wsspi.uow.UOWAction                      (Lambda-style UOW work unit)
+ * CLOUD-NATIVE REPLACEMENT:
+ *   - Replaced IBM WebSphere UOWManager with Spring PlatformTransactionManager
+ *   - Replaced WAS JNDI lookups with Spring dependency injection
+ *   - Added AWS Secrets Manager integration for secure credential management
+ *   - Removed WAS-specific APIs (com.ibm.websphere.uow, com.ibm.wsspi.uow)
  *
- * These APIs allow precise transaction boundary control and UOW-scoped work
- * units that span multiple EJB calls — a WAS-proprietary pattern widely used
- * in government/enterprise registry applications.
+ * AWS INTEGRATION:
+ *   - Database credentials retrieved from AWS Secrets Manager
+ *   - Supports automatic credential rotation without redeployment
+ *   - Credentials never stored in source code or configuration files
  *
- * ──────────────────────────────────────────────────────────────────────────────
- * MODERNIZATION NOTE (Concierto Modernize – M-Path awareness):
- *   Replace UOWManager with standard JTA:
- *     @Resource UserTransaction ut;
- *   or use CDI @Transactional on service methods in Open Liberty.
- * ──────────────────────────────────────────────────────────────────────────────
+ * USAGE:
+ *   - Inject PlatformTransactionManager via Spring @Autowired
+ *   - Use @Transactional annotation on service methods (preferred)
+ *   - Use programmatic transactions only when dynamic control needed
  */
 public class WASTransactionUtil {
 
     private static final Logger LOGGER = Logger.getLogger(WASTransactionUtil.class.getName());
 
-    /** WAS JNDI name for the UOW Manager */
-    private static final String UOW_MANAGER_JNDI = "java:comp/websphere/UOWManager";
-
-    /** WAS JNDI name for UserTransaction */
-    private static final String USER_TX_JNDI = "java:comp/UserTransaction";
+    /** AWS region for Secrets Manager - configurable via environment variable */
+    private static final String AWS_REGION = System.getenv().getOrDefault("AWS_REGION", "us-east-1");
+    
+    /** Secret name in AWS Secrets Manager containing database credentials */
+    private static final String DB_SECRET_NAME = System.getenv().getOrDefault("DB_SECRET_NAME", "ltr/database/credentials");
 
     private WASTransactionUtil() { /* utility */ }
 
     /**
-     * Execute a unit of work using the WAS UOWManager.
-     * Provides XA-capable, cluster-aware transaction boundaries.
+     * Execute a unit of work using Spring's transaction management.
+     * Provides ACID transaction boundaries compatible with AWS RDS.
      *
+     * @param transactionManager Spring transaction manager (injected)
      * @param action  the transactional work to perform
      * @param requiresNew  if true, always starts a new transaction (REQUIRES_NEW semantics)
      */
-    public static void executeInTransaction(UOWAction action, boolean requiresNew)
-            throws Exception {
+    public static void executeInTransaction(PlatformTransactionManager transactionManager,
+                                           TransactionCallback action, 
+                                           boolean requiresNew) throws Exception {
 
-        UOWManager uowManager = lookupUOWManager();
+        DefaultTransactionDefinition def = new DefaultTransactionDefinition();
+        def.setPropagationBehavior(requiresNew 
+                ? TransactionDefinition.PROPAGATION_REQUIRES_NEW 
+                : TransactionDefinition.PROPAGATION_REQUIRED);
 
-        int uowType = requiresNew
-                ? UOWManager.UOW_TYPE_GLOBAL_TRANSACTION
-                : UOWManager.UOW_TYPE_GLOBAL_TRANSACTION;
+        TransactionStatus status = transactionManager.getTransaction(def);
 
-        LOGGER.fine("Executing UOW action. RequiresNew=" + requiresNew);
-        uowManager.runUnderUOW(uowType, requiresNew, action);
-    }
-
-    /**
-     * Look up WAS UOWManager from JNDI.
-     * This is a WAS-proprietary extension – not available in standard Java EE.
-     */
-    public static UOWManager lookupUOWManager() throws NamingException {
-        InitialContext ctx = new InitialContext();
         try {
-            return (UOWManager) ctx.lookup(UOW_MANAGER_JNDI);
-        } finally {
-            ctx.close();
-        }
-    }
-
-    /**
-     * Obtain a standard JTA UserTransaction from WAS JNDI.
-     * Usable from servlets and non-EJB components.
-     */
-    public static UserTransaction getUserTransaction() throws NamingException {
-        InitialContext ctx = new InitialContext();
-        try {
-            return (UserTransaction) ctx.lookup(USER_TX_JNDI);
-        } finally {
-            ctx.close();
-        }
-    }
-
-    /**
-     * Helper: begin a UserTransaction safely (for servlet/non-EJB use).
-     */
-    public static UserTransaction beginTransaction() {
-        try {
-            UserTransaction ut = getUserTransaction();
-            ut.begin();
-            return ut;
+            LOGGER.fine("Executing transaction. RequiresNew=" + requiresNew);
+            action.execute();
+            transactionManager.commit(status);
+            LOGGER.fine("Transaction committed successfully.");
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to begin UserTransaction", e);
-            throw new RuntimeException("Transaction begin failed", e);
+            LOGGER.log(Level.SEVERE, "Transaction failed, rolling back", e);
+            transactionManager.rollback(status);
+            throw e;
         }
     }
 
     /**
-     * Commit or roll back based on success flag; always nulls the transaction.
+     * Retrieve database credentials from AWS Secrets Manager.
+     * Credentials are encrypted at rest and in transit.
+     * Supports automatic rotation without application redeployment.
+     *
+     * @return DatabaseCredentials object containing connection details
      */
-    public static void endTransaction(UserTransaction ut, boolean commit) {
-        if (ut == null) return;
-        try {
-            if (commit) {
-                ut.commit();
-                LOGGER.fine("Transaction committed.");
-            } else {
-                ut.rollback();
-                LOGGER.warning("Transaction rolled back.");
-            }
+    public static DatabaseCredentials getDatabaseCredentials() {
+        try (SecretsManagerClient client = SecretsManagerClient.builder()
+                .region(Region.of(AWS_REGION))
+                .build()) {
+
+            GetSecretValueRequest request = GetSecretValueRequest.builder()
+                    .secretId(DB_SECRET_NAME)
+                    .build();
+
+            GetSecretValueResponse response = client.getSecretValue(request);
+            String secretString = response.secretString();
+
+            // Parse JSON secret (format: {"username":"xxx","password":"yyy","host":"zzz","port":"5432","dbname":"ltr"})
+            return DatabaseCredentials.fromJson(secretString);
+
         } catch (Exception e) {
-            LOGGER.log(Level.SEVERE, "Failed to end transaction", e);
-            try { ut.rollback(); } catch (Exception ignored) { /* best effort */ }
-            throw new RuntimeException("Transaction end failed", e);
+            LOGGER.log(Level.SEVERE, "Failed to retrieve database credentials from AWS Secrets Manager", e);
+            throw new RuntimeException("Database credential retrieval failed", e);
+        }
+    }
+
+    /**
+     * Functional interface for transaction callbacks.
+     */
+    @FunctionalInterface
+    public interface TransactionCallback {
+        void execute() throws Exception;
+    }
+
+    /**
+     * Database credentials retrieved from AWS Secrets Manager.
+     */
+    public static class DatabaseCredentials {
+        private String username;
+        private String password;
+        private String host;
+        private int port;
+        private String dbname;
+
+        public static DatabaseCredentials fromJson(String json) {
+            // Simple JSON parsing - in production use Jackson ObjectMapper
+            DatabaseCredentials creds = new DatabaseCredentials();
+            creds.username = extractJsonValue(json, "username");
+            creds.password = extractJsonValue(json, "password");
+            creds.host = extractJsonValue(json, "host");
+            creds.port = Integer.parseInt(extractJsonValue(json, "port"));
+            creds.dbname = extractJsonValue(json, "dbname");
+            return creds;
+        }
+
+        private static String extractJsonValue(String json, String key) {
+            String pattern = "\"" + key + "\"\\s*:\\s*\"([^\"]+)\"";
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
+            java.util.regex.Matcher m = p.matcher(json);
+            return m.find() ? m.group(1) : "";
+        }
+
+        public String getUsername() { return username; }
+        public String getPassword() { return password; }
+        public String getHost() { return host; }
+        public int getPort() { return port; }
+        public String getDbname() { return dbname; }
+
+        public String getJdbcUrl() {
+            return String.format("jdbc:postgresql://%s:%d/%s", host, port, dbname);
         }
     }
 }

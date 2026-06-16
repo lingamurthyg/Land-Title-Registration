@@ -1,14 +1,12 @@
-package com.trianz.ltr.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.util.Date;
 
-/**
- * TitleTransfer - Records the chain of ownership for a land title.
- * Each row in TITLE_TRANSFER_HISTORY represents one transfer event.
- */
-public class TitleTransfer implements Serializable {
+ *
+ * CLOUD-NATIVE MIGRATION:
+ *   - Serializable for distributed caching (Amazon ElastiCache/Redis)
+ *   - Compatible with Spring Boot microservices architecture
 
     private static final long serialVersionUID = 1L;
 
@@ -52,13 +50,7 @@ public class TitleTransfer implements Serializable {
     private String rejectionReason;
     private String remarks;
 
-    // ── Constructors ───────────────────────────────────────────────────────────
-
-    public TitleTransfer() {
-        this.transferDate  = new Date();
-        this.transferStatus = TransferStatus.INITIATED;
-        this.currencyCode  = "USD";
-    }
+        this.transferDate  = Date.from(Instant.now());
 
     // ── Getters / Setters ──────────────────────────────────────────────────────
 
