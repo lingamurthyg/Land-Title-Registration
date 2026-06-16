@@ -2,10 +2,17 @@ package com.trianz.ltr.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.Instant;
 
 /**
- * TitleTransfer - Records the chain of ownership for a land title.
+ * TitleTransfer - Domain model representing a land title ownership transfer.
+ *
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced java.util.Date with java.time.Instant for UTC standardization
+ *   - Instant provides timezone-independent timestamps for distributed cloud services
+ *   - Compatible with AWS RDS, ElastiCache, and cloud-native patterns
+ *   - Serializable for distributed session management with Amazon ElastiCache
+ *
  * Each row in TITLE_TRANSFER_HISTORY represents one transfer event.
  */
 public class TitleTransfer implements Serializable {
@@ -40,22 +47,23 @@ public class TitleTransfer implements Serializable {
     private String     currencyCode;
     private BigDecimal stampDutyPaid;
 
-    private Date   transferDate;
-    private Date   effectiveDate;
-    private String transferDeedNumber;
+    private Instant transferDate;
+    private Instant effectiveDate;
+    private String  transferDeedNumber;
+
     private String notaryNationalId;
     private String notaryName;
 
-    private String initiatedBy;    // WAS principal
+    private String initiatedBy;
     private String approvedBy;
-    private Date   approvedDate;
+    private Instant approvedDate;
     private String rejectionReason;
     private String remarks;
 
     // ── Constructors ───────────────────────────────────────────────────────────
 
     public TitleTransfer() {
-        this.transferDate  = new Date();
+        this.transferDate  = Instant.now();
         this.transferStatus = TransferStatus.INITIATED;
         this.currencyCode  = "USD";
     }
@@ -101,11 +109,11 @@ public class TitleTransfer implements Serializable {
     public BigDecimal getStampDutyPaid()                  { return stampDutyPaid; }
     public void       setStampDutyPaid(BigDecimal v)      { this.stampDutyPaid = v; }
 
-    public Date getTransferDate()                         { return transferDate; }
-    public void setTransferDate(Date v)                   { this.transferDate = v; }
+    public Instant getTransferDate()                      { return transferDate; }
+    public void setTransferDate(Instant v)                { this.transferDate = v; }
 
-    public Date getEffectiveDate()                        { return effectiveDate; }
-    public void setEffectiveDate(Date v)                  { this.effectiveDate = v; }
+    public Instant getEffectiveDate()                     { return effectiveDate; }
+    public void setEffectiveDate(Instant v)               { this.effectiveDate = v; }
 
     public String getTransferDeedNumber()                 { return transferDeedNumber; }
     public void   setTransferDeedNumber(String v)         { this.transferDeedNumber = v; }
@@ -122,12 +130,19 @@ public class TitleTransfer implements Serializable {
     public String getApprovedBy()                         { return approvedBy; }
     public void   setApprovedBy(String v)                 { this.approvedBy = v; }
 
-    public Date getApprovedDate()                         { return approvedDate; }
-    public void setApprovedDate(Date v)                   { this.approvedDate = v; }
+    public Instant getApprovedDate()                      { return approvedDate; }
+    public void setApprovedDate(Instant v)                { this.approvedDate = v; }
 
     public String getRejectionReason()                    { return rejectionReason; }
     public void   setRejectionReason(String v)            { this.rejectionReason = v; }
 
     public String getRemarks()                            { return remarks; }
     public void   setRemarks(String v)                    { this.remarks = v; }
+
+    @Override
+    public String toString() {
+        return "TitleTransfer{id=" + transferId + ", title='" + titleNumber
+                + "', from='" + previousOwnerName + "', to='" + newOwnerName
+                + "', status=" + transferStatus + "}";
+    }
 }

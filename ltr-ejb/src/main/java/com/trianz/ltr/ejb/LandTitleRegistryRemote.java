@@ -4,26 +4,17 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.Remote;
 import java.util.List;
 
 /**
- * LandTitleRegistryRemote - EJB 3.x Remote Business Interface.
- *
- * Exposed over RMI-IIOP by WAS for:
- *   - Remote EJB clients (other WAS applications)
- *   - External Java SE clients via JNDI lookup
- *
- * WAS JNDI binding (ibm-ejb-jar-bnd.xml):
- *   ejb/LandTitleRegistryRemote
- *
- * ──────────────────────────────────────────────────────────────────────────────
- * MODERNIZATION NOTE:
- *   Replace with a JAX-RS REST endpoint on Open Liberty.
- *   Remote EJBs are not supported in Open Liberty by default.
- * ──────────────────────────────────────────────────────────────────────────────
+ * LandTitleRegistryRemote - Remote Business Interface (exposed via REST API).
+ * 
+ * CLOUD-NATIVE MIGRATION:
+ *   - Removed EJB 2.x @Remote annotation
+ *   - Standard Java interface for Spring Boot microservices
+ *   - In cloud-native architecture, this interface is exposed via Spring REST controllers
+ *   - Compatible with AWS API Gateway and Application Load Balancer
  */
-@Remote
 public interface LandTitleRegistryRemote {
 
     /**

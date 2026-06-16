@@ -13,30 +13,64 @@
     </parent>
 
     <artifactId>ltr-web</artifactId>
-    <packaging>war</packaging>
-    <n>Land Title Registry - Web Module</n>
+    <packaging>jar</packaging>
+    <name>Land Title Registry - Web Module (Executable JAR)</name>
+    <description>
+        Cloud-native web module packaged as executable JAR with embedded Tomcat.
+        Migrated from WAR packaging to enable container deployment on Amazon ECS, EKS, or AWS Fargate.
+    </description>
 
     <dependencies>
-        <!-- EJB client jar from sibling module -->
+        <!-- Service module dependency -->
         <dependency>
             <groupId>com.trianz.ltr</groupId>
             <artifactId>ltr-ejb</artifactId>
             <version>${project.version}</version>
-            <classifier>client</classifier>
         </dependency>
 
+        <!-- Spring Boot Starter Web (includes embedded Tomcat) -->
         <dependency>
-            <groupId>com.ibm.websphere.appserver</groupId>
-            <artifactId>was_public</artifactId>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+        
+        <!-- Spring Boot Starter Security -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        
+        <!-- Spring Boot Starter Data Redis (for session management with Amazon ElastiCache) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis</artifactId>
+        </dependency>
+        
+        <!-- Spring Session Data Redis (for distributed session management) -->
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-data-redis</artifactId>
+        </dependency>
+        
+        <!-- Java EE APIs (for backward compatibility with servlets) -->
         <dependency>
             <groupId>javax</groupId>
             <artifactId>javaee-api</artifactId>
         </dependency>
+        
+        <!-- Jackson for JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
+        
+        <!-- Jackson Java 8 Date/Time Support -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        
+        <!-- SLF4J Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
@@ -46,12 +80,19 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-war-plugin</artifactId>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <warName>ltr-web</warName>
-                    <failOnMissingWebXml>true</failOnMissingWebXml>
+                    <mainClass>com.trianz.ltr.LandTitleRegistryApplication</mainClass>
+                    <layout>JAR</layout>
                 </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

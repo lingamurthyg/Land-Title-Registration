@@ -8,7 +8,9 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.EJB;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Controller;
+
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -26,10 +28,11 @@ import java.util.logging.Logger;
 /**
  * TitleRegistryServlet - Front-controller servlet for the Land Title Registry.
  *
- * WAS-SPECIFIC FEATURES:
- *   - @EJB injection resolved by WAS EJB container from ibm-ejb-jar-bnd.xml bindings
- *   - HttpServletRequest.getUserPrincipal() returns WAS JAAS-authenticated user
- *   - HttpServletRequest.isUserInRole() checks WAS security roles
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced @EJB with Spring @Autowired for dependency injection
+ *   - HttpServletRequest.getUserPrincipal() returns Spring Security authenticated user
+ *   - HttpServletRequest.isUserInRole() checks Spring Security roles
+ *   - Migrated from WebSphere EJB container to Spring Boot microservices
  *
  * URL patterns:
  *   GET  /api/titles/{titleNumber}         → getTitleByNumber
@@ -44,17 +47,17 @@ import java.util.logging.Logger;
  *   POST /api/transfers/{id}/reject        → rejectTransfer
  *   GET  /api/transfers?title={titleNum}   → getTransferHistory
  *
- * MODERNIZATION NOTE:
- *   Replace this servlet with JAX-RS @Path resources on Open Liberty.
+ * NOTE: Consider migrating to Spring REST Controllers (@RestController) for better cloud-native patterns.
  */
 @WebServlet(name = "TitleRegistryServlet", urlPatterns = {"/api/titles/*", "/api/transfers/*"})
+@Controller
 public class TitleRegistryServlet extends HttpServlet {
 
     private static final Logger LOGGER = Logger.getLogger(TitleRegistryServlet.class.getName());
     private static final long serialVersionUID = 1L;
 
-    /** WAS EJB container injects the Local EJB from the same EAR */
-    @EJB(beanName = "LandTitleRegistry")
+    /** Spring dependency injection replaces EJB @EJB injection */
+    @Autowired
     private LandTitleRegistryLocal registryBean;
 
     private ObjectMapper mapper;

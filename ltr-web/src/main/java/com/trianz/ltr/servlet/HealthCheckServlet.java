@@ -1,6 +1,6 @@
 package com.trianz.ltr.servlet;
 
-import com.trianz.ltr.util.WASDataSourceUtil;
+import com.trianz.ltr.util.DataSourceUtil;
 
 import javax.naming.InitialContext;
 import javax.servlet.annotation.WebServlet;
@@ -10,17 +10,24 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.sql.Connection;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 /**
- * HealthCheckServlet - Application health endpoint for WAS monitoring.
+ * HealthCheckServlet - Application health endpoint for cloud monitoring.
  *
- * WAS-SPECIFIC: checks WAS JNDI DataSource availability.
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced java.util.Date with java.time.Instant for UTC standardization
+ *   - Uses DateTimeFormatter with UTC zone for consistent timestamps across distributed services
+ *   - Checks database connectivity for AWS RDS health monitoring
+ *   - Compatible with AWS Application Load Balancer health checks
+ *   - Removed WAS-specific DataSource lookups, uses cloud-native DataSourceUtil
+ *
  * URL: GET /health
  *
  * MODERNIZATION NOTE:
- *   Replace with MicroProfile Health @Readiness / @Liveness on Open Liberty.
+ *   Consider replacing with Spring Boot Actuator health endpoints for better cloud-native patterns.
  */
 @WebServlet(name = "HealthCheckServlet", urlPatterns = {"/health"})
 public class HealthCheckServlet extends HttpServlet {
@@ -34,26 +41,24 @@ public class HealthCheckServlet extends HttpServlet {
         Connection conn = null;
 
         try {
-            conn = WASDataSourceUtil.getConnection();
+            conn = DataSourceUtil.getConnection();
             dbOk = conn != null && !conn.isClosed();
         } catch (Exception e) {
             dbError = e.getMessage();
         } finally {
-            WASDataSourceUtil.closeQuietly(conn);
+            DataSourceUtil.closeQuietly(conn);
         }
 
-        boolean ejbOk = false;
-        try {
-            InitialContext ctx = new InitialContext();
-            ctx.lookup("ejblocal:LandTitleRegistryLocal");
-            ejbOk = true;
-            ctx.close();
-        } catch (Exception ignored) { /* EJB not bound in this lookup scope is OK */ ejbOk = true; }
+        boolean ejbOk = true; // In Spring Boot, EJB container check is not applicable
 
         int status = (dbOk) ? 200 : 503;
         resp.setStatus(status);
 
-        String timestamp = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss").format(new Date());
+        // Use java.time API with UTC for consistent timestamps across distributed cloud services
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                .withZone(ZoneOffset.UTC);
+        String timestamp = formatter.format(Instant.now());
+        
         PrintWriter out = resp.getWriter();
         out.printf("{%n" +
                 "  \"status\": \"%s\",%n" +
@@ -62,7 +67,7 @@ public class HealthCheckServlet extends HttpServlet {
                 "  \"version\": \"1.0.0\",%n" +
                 "  \"checks\": {%n" +
                 "    \"database\": { \"status\": \"%s\"%s },%n" +
-                "    \"ejbContainer\": { \"status\": \"%s\" }%n" +
+                "    \"application\": { \"status\": \"%s\" }%n" +
                 "  }%n" +
                 "}%n",
                 dbOk ? "UP" : "DOWN",

@@ -2,13 +2,16 @@ package com.trianz.ltr.model;
 
 import java.io.Serializable;
 import java.math.BigDecimal;
-import java.util.Date;
+import java.time.Instant;
 
 /**
- * LandTitle - Core domain entity representing a registered land parcel.
+ * LandTitle - Domain model representing a registered land title.
  *
- * Deployed on IBM WebSphere Application Server 9.x.
- * Serializable for EJB passivation and WAS clustering support.
+ * CLOUD-NATIVE MIGRATION:
+ *   - Replaced java.util.Date with java.time.Instant for UTC standardization
+ *   - Instant provides timezone-independent timestamps for distributed cloud services
+ *   - Compatible with AWS RDS, ElastiCache, and cloud-native patterns
+ *   - Serializable for distributed session management with Amazon ElastiCache
  */
 public class LandTitle implements Serializable {
 
@@ -66,13 +69,13 @@ public class LandTitle implements Serializable {
 
     private BigDecimal assessedValue;
     private BigDecimal marketValue;
-    private String currencyCode;       // ISO 4217 e.g. "USD", "KES", "ZAR"
+    private String currencyCode;
 
-    // ── Audit ──────────────────────────────────────────────────────────────────
+    // ── Audit Trail ────────────────────────────────────────────────────────────
 
-    private Date registrationDate;
-    private Date lastModifiedDate;
-    private String registeredBy;       // WAS principal name
+    private Instant registrationDate;
+    private Instant lastModifiedDate;
+    private String registeredBy;       // Spring Security principal name
     private String lastModifiedBy;
     private String remarks;
 
@@ -86,7 +89,7 @@ public class LandTitle implements Serializable {
 
     public LandTitle() {
         this.status = TitleStatus.PENDING;
-        this.registrationDate = new Date();
+        this.registrationDate = Instant.now();
         this.currencyCode = "USD";
         this.hasLien = false;
         this.hasMortgage = false;
@@ -164,11 +167,11 @@ public class LandTitle implements Serializable {
     public String getCurrencyCode()                       { return currencyCode; }
     public void   setCurrencyCode(String v)               { this.currencyCode = v; }
 
-    public Date getRegistrationDate()                     { return registrationDate; }
-    public void setRegistrationDate(Date v)               { this.registrationDate = v; }
+    public Instant getRegistrationDate()                  { return registrationDate; }
+    public void setRegistrationDate(Instant v)            { this.registrationDate = v; }
 
-    public Date getLastModifiedDate()                     { return lastModifiedDate; }
-    public void setLastModifiedDate(Date v)               { this.lastModifiedDate = v; }
+    public Instant getLastModifiedDate()                  { return lastModifiedDate; }
+    public void setLastModifiedDate(Instant v)            { this.lastModifiedDate = v; }
 
     public String getRegisteredBy()                       { return registeredBy; }
     public void   setRegisteredBy(String v)               { this.registeredBy = v; }

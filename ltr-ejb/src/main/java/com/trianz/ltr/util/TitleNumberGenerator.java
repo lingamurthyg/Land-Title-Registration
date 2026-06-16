@@ -1,16 +1,22 @@
 package com.trianz.ltr.util;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * TitleNumberGenerator - Generates unique land title registration numbers.
  *
+ * CLOUD-NATIVE MIGRATION:
+ *   - Uses java.time.Instant with UTC for consistent timestamps across distributed services
+ *   - DateTimeFormatter with ZoneOffset.UTC ensures timezone-independent generation
+ *   - Compatible with AWS RDS and cloud-native patterns
+ *
  * Format: LTR-{YYYY}-{REGION_CODE}-{SEQUENCE}
  * Example: LTR-2024-NRB-000042
  *
- * In production the sequence is persisted in the DB (managed by the EJB layer).
+ * In production the sequence is persisted in the DB (managed by the service layer).
  * This class provides a local atomic counter for single-node or testing scenarios.
  */
 public class TitleNumberGenerator {
@@ -27,7 +33,9 @@ public class TitleNumberGenerator {
      * @return formatted title number
      */
     public static String generate(String regionCode, long seqNumber) {
-        String year = new SimpleDateFormat("yyyy").format(new Date());
+        String year = DateTimeFormatter.ofPattern("yyyy")
+                .withZone(ZoneOffset.UTC)
+                .format(Instant.now());
         return String.format("LTR-%s-%s-%06d", year, regionCode.toUpperCase(), seqNumber);
     }
 

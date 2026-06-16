@@ -4,14 +4,17 @@ import com.trianz.ltr.model.LandTitle;
 import com.trianz.ltr.model.LandTitle.TitleStatus;
 import com.trianz.ltr.model.TitleTransfer;
 
-import javax.ejb.Local;
 import java.util.List;
 
 /**
- * LandTitleRegistryLocal - EJB 3.x Local Business Interface.
- * Used by Servlets and other EJBs within the same JVM / EAR.
+ * LandTitleRegistryLocal - Local Business Interface for Spring Service.
+ * 
+ * CLOUD-NATIVE MIGRATION:
+ *   - Removed EJB 2.x @Local annotation
+ *   - Standard Java interface for Spring Boot microservices
+ *   - Implemented by Spring @Service components
+ *   - Compatible with AWS managed services (RDS, ElastiCache)
  */
-@Local
 public interface LandTitleRegistryLocal {
 
     String registerTitle(LandTitle title) throws LandTitleException;

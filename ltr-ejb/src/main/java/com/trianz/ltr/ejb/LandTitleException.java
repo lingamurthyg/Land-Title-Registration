@@ -1,13 +1,13 @@
 package com.trianz.ltr.ejb;
 
 /**
- * LandTitleException - Checked application exception for the registry EJB.
- * Marked as @ApplicationException so WAS does NOT roll back the transaction
- * automatically (caller decides rollback behaviour).
+ * LandTitleException - Checked application exception for the registry service.
+ * 
+ * CLOUD-NATIVE MIGRATION:
+ *   - Removed EJB 2.x ApplicationException
+ *   - Standard Java exception for Spring Boot microservices
+ *   - Spring @Transactional handles rollback based on exception type configuration
  */
-import javax.ejb.ApplicationException;
-
-@ApplicationException(rollback = false)
 public class LandTitleException extends Exception {
 
     private static final long serialVersionUID = 1L;
